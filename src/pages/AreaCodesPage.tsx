@@ -9,7 +9,8 @@ import {
   FunnelIcon,
   ArrowDownTrayIcon,
   ArrowUpIcon,
-  ArrowDownIcon
+  ArrowDownIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 
@@ -35,6 +36,17 @@ export default function AreaCodesPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
+  const [showColumnSelector, setShowColumnSelector] = useState(false)
+
+  // Column management similar to CallLogsPage
+  const availableColumns = [
+    { key: 'areaCode', label: 'Area Code', required: true },
+    { key: 'state', label: 'State', required: false },
+    { key: 'totalCalls', label: 'Total Calls', required: true }
+  ]
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'areaCode', 'state', 'totalCalls'
+  ])
 
   // Fetch area codes data
   const fetchAreaCodes = useCallback(async (page: number = 1, reset: boolean = false) => {
@@ -163,6 +175,49 @@ export default function AreaCodesPage() {
         searchPlaceholder="Search area codes..."
         actions={
           <>
+            <div className="relative">
+              <button
+                onClick={() => setShowColumnSelector(!showColumnSelector)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <EyeIcon className="h-4 w-4 mr-2" />
+                Columns
+              </button>
+
+              {showColumnSelector && (
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                  <div className="p-4">
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Select Columns to View</h3>
+                    <div className="space-y-2">
+                      {availableColumns.map((column) => (
+                        <label key={column.key} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={visibleColumns.includes(column.key)}
+                            disabled={column.required}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setVisibleColumns([...visibleColumns, column.key])
+                              } else {
+                                setVisibleColumns(visibleColumns.filter(col => col !== column.key))
+                              }
+                            }}
+                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded disabled:opacity-50"
+                          />
+                          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            {column.label}
+                            {column.required && <span className="text-red-500 ml-1">*</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">* Required columns cannot be hidden</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             <button
               onClick={handleExport}
               disabled={areaCodes.length === 0}
@@ -198,50 +253,51 @@ export default function AreaCodesPage() {
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
                     <tr>
-                      {/* AREA CODE */}
-                      <th 
-                        className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                        onClick={() => handleSort('areaCode')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Area Code</span>
-                          {sortBy === 'areaCode' && (
-                            <span className="text-blue-500">
-                              {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* STATE */}
-                      <th 
-                        className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                        onClick={() => handleSort('state')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>State</span>
-                          {sortBy === 'state' && (
-                            <span className="text-blue-500">
-                              {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
-                            </span>
-                          )}
-                        </div>
-                      </th>
-                      
-                      {/* TOTAL CALLS */}
-                      <th 
-                        className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-                        onClick={() => handleSort('totalCalls')}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>Total Calls</span>
-                          {sortBy === 'totalCalls' && (
-                            <span className="text-blue-500">
-                              {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
-                            </span>
-                          )}
-                        </div>
-                      </th>
+                      {visibleColumns.includes('areaCode') && (
+                        <th 
+                          className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('areaCode')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Area Code</span>
+                            {sortBy === 'areaCode' && (
+                              <span className="text-blue-500">
+                                {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      )}
+                      {visibleColumns.includes('state') && (
+                        <th 
+                          className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('state')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>State</span>
+                            {sortBy === 'state' && (
+                              <span className="text-blue-500">
+                                {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      )}
+                      {visibleColumns.includes('totalCalls') && (
+                        <th 
+                          className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('totalCalls')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Total Calls</span>
+                            {sortBy === 'totalCalls' && (
+                              <span className="text-blue-500">
+                                {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -261,32 +317,33 @@ export default function AreaCodesPage() {
                     ) : (
                       areaCodes.map((areaCode, index) => (
                         <tr key={`${areaCode.areaCode}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          {/* AREA CODE */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                              {areaCode.areaCode || 'Unknown'}
-                            </div>
-                          </td>
-                          
-                          {/* STATE */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 dark:text-gray-100">
-                              <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                                areaCode.state && areaCode.state !== 'Unknown'
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                              }`}>
-                                {areaCode.state || 'Unknown'}
-                              </span>
-                            </div>
-                          </td>
-                          
-                          {/* TOTAL CALLS */}
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                              {formatNumber(areaCode.totalCalls)}
-                            </div>
-                          </td>
+                          {visibleColumns.includes('areaCode') && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                {areaCode.areaCode || 'Unknown'}
+                              </div>
+                            </td>
+                          )}
+                          {visibleColumns.includes('state') && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-gray-900 dark:text-gray-100">
+                                <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
+                                  areaCode.state && areaCode.state !== 'Unknown'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {areaCode.state || 'Unknown'}
+                                </span>
+                              </div>
+                            </td>
+                          )}
+                          {visibleColumns.includes('totalCalls') && (
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                {formatNumber(areaCode.totalCalls)}
+                              </div>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
