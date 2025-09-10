@@ -18,6 +18,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import axios from 'axios'
 
+// Use the same API base URL pattern as services to work in Vercel
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
 interface DashboardData {
   summary: {
     totalCalls: number
@@ -72,7 +75,7 @@ export default function DashboardPage() {
       }
 
       // Use the new powerful aggregation endpoint
-      const response = await axios.get(`/api/dashboard/stats`, {
+      const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
         params: { collection: selectedDataSource },
         headers: {
           'Authorization': `Bearer ${token}`,

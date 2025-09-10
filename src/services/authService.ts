@@ -105,7 +105,7 @@ export const authService = {
   // Google OAuth login
   async googleLogin(token: string): Promise<LoginResponse> {
     try {
-      const response = await apiClient.post<LoginResponse>('/auth/google', { token })
+      const response = await apiClient.post<LoginResponse>('/auth/google', { credential: token })
       return response.data
     } catch (error: any) {
       console.error('Google login error:', error)
