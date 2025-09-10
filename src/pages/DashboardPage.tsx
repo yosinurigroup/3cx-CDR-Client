@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useData } from '../contexts/DataContext'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -12,7 +12,6 @@ import {
   faExclamationTriangle,
   faTachometerAlt,
   faPhone,
-  faPhoneSquare,
   faArrowDown,
   faArrowUp,
   faStopwatch
@@ -364,7 +363,7 @@ export default function DashboardPage() {
                     borderRadius: '8px',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
-                  formatter={(value: any, name: string) => [
+                  formatter={(value: any, _name: string) => [
                     formatNumber(value),
                     'Calls'
                   ]}
@@ -425,7 +424,7 @@ export default function DashboardPage() {
                     borderRadius: '8px',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
-                  formatter={(value: any, name: string) => [
+                  formatter={(value: any, _name: string) => [
                     formatNumber(value),
                     'Calls'
                   ]}
@@ -475,7 +474,7 @@ export default function DashboardPage() {
                     fill="#8884d8"
                     dataKey="count"
                   >
-                    {areaCodeDistribution.slice(0, 10).map((entry, index) => (
+                    {areaCodeDistribution.slice(0, 10).map((_entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={COLORS[index % COLORS.length]}
@@ -520,7 +519,7 @@ export default function DashboardPage() {
                     fill="#8884d8"
                     dataKey="count"
                   >
-                    {extensionDistribution.slice(0, 10).map((entry, index) => (
+                    {extensionDistribution.slice(0, 10).map((_entry, index) => (
                       <Cell 
                         key={`cell-${index}`} 
                         fill={COLORS[index % COLORS.length]}

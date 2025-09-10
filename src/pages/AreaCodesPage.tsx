@@ -19,7 +19,7 @@ interface LayoutContext {
 
 export default function AreaCodesPage() {
   const { onMenuClick } = useOutletContext<LayoutContext>()
-  const { selectedDataSource, filters, setFilters, setError } = useData()
+  const { selectedDataSource, filters, setError } = useData()
   const [areaCodes, setAreaCodes] = useState<AreaCode[]>([])
   const [pagination, setPagination] = useState({
     currentPage: 1,

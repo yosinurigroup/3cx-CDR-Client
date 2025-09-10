@@ -249,7 +249,7 @@ function CreateUserModal({ isOpen, onClose, onSubmit }: CreateUserModalProps) {
 
 export default function UsersPage() {
   const { onMenuClick } = useOutletContext<OutletContext>()
-  const { user: currentUser } = useAuth()
+  const { user: _currentUser } = useAuth()
   
   const [users, setUsers] = useState<User[]>([])
   const [userStats, setUserStats] = useState<UserStats | null>(null)
@@ -263,7 +263,7 @@ export default function UsersPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createLoading, setCreateLoading] = useState(false)
+  const [, setCreateLoading] = useState(false)
   
   const itemsPerPage = 10
 

@@ -25,7 +25,7 @@ interface LayoutContext {
 
 export default function CallLogsPage({ callType }: CallLogsPageProps) {
   const { onMenuClick } = useOutletContext<LayoutContext>()
-  const { selectedDataSource, filters, setFilters, setError } = useData()
+  const { selectedDataSource, filters, setError } = useData()
   const [callLogs, setCallLogs] = useState<CallLog[]>([])
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -141,7 +141,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
       
       // Store in cache
       const cacheData = {
-        data: response.data,
+        data: response.data || [],
         pagination: response.pagination!,
         timestamp: Date.now()
       }
@@ -158,7 +158,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
       })
 
       if (!isBackground) {
-        setCallLogs(response.data)
+        setCallLogs(response.data || [])
         if (response.pagination) {
           setPagination(response.pagination)
         }
