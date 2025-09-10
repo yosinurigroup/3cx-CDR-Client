@@ -98,16 +98,23 @@ root.render(
 )
 
 // Register service worker for PWA capabilities (optional)
+// On Vercel, unless you've added a real sw.js (via Vite PWA or custom),
+// the path may rewrite to index.html which has MIME type text/html.
+// Probe the file first and only register if it's served as JavaScript.
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
+  window.addEventListener('load', async () => {
+    try {
+      const res = await fetch('/sw.js', { method: 'HEAD' })
+      const contentType = res.headers.get('content-type') || ''
+      if (res.ok && /javascript|ecmascript/i.test(contentType)) {
+        const registration = await navigator.serviceWorker.register('/sw.js')
         console.log('SW registered: ', registration)
-      })
-      .catch((registrationError) => {
-        console.log('SW registration failed: ', registrationError)
-      })
+      } else {
+        console.log('SW not registered: /sw.js not found or invalid MIME type', { status: res.status, contentType })
+      }
+    } catch (err) {
+      console.log('SW registration skipped due to probe error:', err)
+    }
   })
 }
 
