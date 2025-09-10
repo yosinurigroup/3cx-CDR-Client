@@ -60,7 +60,8 @@ interface AuthContextType extends AuthState {
 const initialState: AuthState = {
   user: null,
   token: localStorage.getItem('token'),
-  isLoading: false,
+  // Start in loading state to avoid redirect flicker until we verify the token
+  isLoading: true,
   isAuthenticated: false,
   error: null
 }
@@ -142,6 +143,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem('token')
           dispatch({ type: 'AUTH_FAILURE', payload: 'Session expired' })
         }
+      } else {
+        // Explicitly end loading if no token is present
+        dispatch({ type: 'AUTH_FAILURE', payload: 'Not authenticated' })
       }
     }
 
