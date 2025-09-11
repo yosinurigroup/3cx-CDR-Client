@@ -278,22 +278,36 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
           </nav>
           
           {/* Bottom section with theme toggle and user info - Desktop */}
-          <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${isCollapsed ? 'hidden' : 'block'}`}>
-            {/* User info */}
-            <div className="mt-2 p-2 rounded-md bg-gray-50 dark:bg-gray-800">
-              <div className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.fullName || user?.email}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            {/* Theme toggle - Always visible */}
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className={`flex items-center rounded-md p-2 text-sm leading-6 font-semibold text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800 w-full mb-2 ${isCollapsed ? 'justify-center' : 'gap-x-3'}`}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            >
+              <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} className="w-5 h-5" />
+              <span className={`${isCollapsed ? 'hidden' : 'block'}`}>
+                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </span>
+            </button>
+            
+            {/* User info - Hidden when collapsed */}
+            <div className={`${isCollapsed ? 'hidden' : 'block'}`}>
+              <div className="mt-2 p-2 rounded-md bg-gray-50 dark:bg-gray-800">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
+                  {user?.fullName || user?.email}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Super Admin
+                </div>
+                <button
+                  onClick={logout}
+                  className="mt-2 flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="w-3 h-3" />
+                  Logout
+                </button>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                Super Admin
-              </div>
-              <button
-                onClick={logout}
-                className="mt-2 flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <FontAwesomeIcon icon={faSignOutAlt} className="w-3 h-3" />
-                Logout
-              </button>
             </div>
           </div>
         </div>

@@ -16,7 +16,7 @@
 
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { dataService } from '../services/dataService'
 import type { AreaCode, ApiResponse } from '../services/dataService'
@@ -39,6 +39,8 @@ interface LayoutContext {
 export default function AreaCodesPage() {
   const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<LayoutContext>()
   const { selectedDataSource, filters, setError } = useData()
+  const [searchParams] = useSearchParams()
+  const stateFilter = searchParams.get('state')
   const [areaCodes, setAreaCodes] = useState<AreaCode[]>([])
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -73,8 +75,8 @@ export default function AreaCodesPage() {
 
   // Cache key builder (match CallLogsPage)
   const getCacheKey = useCallback((page: number) => {
-    return `${page}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}`
-  }, [sortBy, sortOrder, searchTerm, selectedDataSource, filters])
+    return `${page}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}-${stateFilter}`
+  }, [sortBy, sortOrder, searchTerm, selectedDataSource, filters, stateFilter])
 
   // Fetch area codes data with caching
   const fetchAreaCodes = useCallback(async (page: number = 1, isBackground: boolean = false) => {
@@ -104,7 +106,9 @@ export default function AreaCodesPage() {
         sortBy,
         sortOrder,
         // Apply filters if any
-        ...filters
+        ...filters,
+        // Apply state filter from URL if present
+        ...(stateFilter && { state: stateFilter })
       }
 
       const response: ApiResponse<AreaCode[]> = await dataService.getAreaCodes(params)
@@ -139,7 +143,7 @@ export default function AreaCodesPage() {
     } finally {
       if (!isBackground) setIsLoading(false)
     }
-  }, [selectedDataSource, searchTerm, sortBy, sortOrder, filters, pagination.limit, setError, pageCache, getCacheKey, areaCodes.length])
+  }, [selectedDataSource, searchTerm, sortBy, sortOrder, filters, stateFilter, pagination.limit, setError, pageCache, getCacheKey, areaCodes.length])
 
   // Prefetch adjacent pages like CallLogsPage
   const prefetchPages = useCallback((currentPage: number, totalPages: number) => {
@@ -294,7 +298,7 @@ export default function AreaCodesPage() {
     setPageCache(new Map())
     setIsInitialLoading(true)
     fetchAreaCodes(1)
-  }, [selectedDataSource, sortBy, sortOrder, searchTerm, JSON.stringify(filters)])
+  }, [selectedDataSource, sortBy, sortOrder, searchTerm, JSON.stringify(filters), stateFilter])
 
   // Prefetch adjacent pages when data loads
   useEffect(() => {
@@ -313,7 +317,7 @@ export default function AreaCodesPage() {
   return (
     <div className="h-full flex flex-col">
       <DynamicHeader
-        title="Area Codes"
+        title={stateFilter ? `Area Codes - ${stateFilter}` : "Area Codes"}
         onMenuClick={onMenuClick}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={onToggleSidebar}
