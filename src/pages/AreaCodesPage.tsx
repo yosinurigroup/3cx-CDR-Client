@@ -314,7 +314,6 @@ export default function AreaCodesPage() {
     <div className="h-full flex flex-col">
       <DynamicHeader
         title="Area Codes"
-        subtitle="Area code analysis and call statistics"
         onMenuClick={onMenuClick}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={onToggleSidebar}
@@ -398,7 +397,7 @@ export default function AreaCodesPage() {
         ) : (
           <div className="h-full flex flex-col">
             <div className="flex-1 overflow-hidden bg-white dark:bg-gray-800 shadow-sm rounded-lg">
-              <div className="overflow-auto" style={{ height: 'calc(100vh - 160px)' }}>
+              <div className="overflow-auto" style={{ height: 'calc(100vh - 120px)' }}>
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
                     <tr>

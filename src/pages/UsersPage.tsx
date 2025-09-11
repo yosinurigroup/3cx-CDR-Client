@@ -421,9 +421,8 @@ export default function UsersPage() {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                   <FontAwesomeIcon icon={faUsers} className="mr-3 text-indigo-600" />
-                  Users Management
+                  Users
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">Manage user accounts, roles, and database permissions</p>
               </div>
             </div>
             <button

@@ -35,7 +35,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
     currentPage: 1,
     totalPages: 1,
     totalCount: 0,
-    limit: 25,
+    limit: 100,
     hasNextPage: false,
     hasPrevPage: false
   })
@@ -44,6 +44,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [showFilters, setShowFilters] = useState(false)
   const [showColumnSelector, setShowColumnSelector] = useState(false)
+  const [pageSize, setPageSize] = useState<number>(100)
   
   // Column management based on call type
   const getDefaultColumns = () => {
@@ -110,8 +111,8 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
 
   // 🪄 MAGIC: Generate cache key
   const getCacheKey = useCallback((page: number) => {
-    return `${page}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}-${urlCallType}`;
-  }, [sortBy, sortOrder, searchTerm, selectedDataSource, filters, urlCallType]);
+    return `${page}-${pageSize}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}-${urlCallType}`;
+  }, [pageSize, sortBy, sortOrder, searchTerm, selectedDataSource, filters, urlCallType]);
 
   // 🪄 MAGIC: Fetch with caching
   const fetchCallLogs = useCallback(async (page = 1, isBackground = false) => {
@@ -139,7 +140,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
 
       const params = {
         page,
-        limit: 25,
+        limit: pageSize,
         sortBy,
         sortOrder,
         search: searchTerm,
@@ -191,7 +192,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
       }
       return null
     }
-  }, [getCacheKey, pageCache, callLogs.length, sortBy, sortOrder, searchTerm, selectedDataSource, callType, filters, setError, urlCallType]);
+  }, [getCacheKey, pageCache, callLogs.length, sortBy, sortOrder, searchTerm, selectedDataSource, callType, filters, setError, urlCallType, pageSize]);
 
   // 🪄 MAGIC: Prefetch adjacent pages
   const prefetchPages = useCallback((currentPage: number, totalPages: number) => {
@@ -211,7 +212,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
     setPageCache(new Map());
     setIsInitialLoading(true);
     fetchCallLogs(1);
-  }, [selectedDataSource, callType, filters, sortBy, sortOrder, searchTerm, urlCallType]);
+  }, [selectedDataSource, callType, filters, sortBy, sortOrder, searchTerm, urlCallType, pageSize]);
 
   // Prefetch adjacent pages when data loads
   useEffect(() => {
@@ -320,12 +321,30 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   // Pagination component - matching the image style
   const PaginationComponent = () => (
     <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400 space-x-3">
         <span>
           Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
           {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
           {pagination.totalCount.toLocaleString()} entries
         </span>
+        <label className="flex items-center space-x-1">
+          <span className="text-gray-600 dark:text-gray-400">Rows per page</span>
+          <select
+            className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs rounded px-2 py-1"
+            value={pageSize}
+            onChange={(e) => {
+              const size = parseInt(e.target.value, 10) || 25;
+              setPageSize(size);
+              setPageCache(new Map());
+              // Reset to page 1 when page size changes
+              setTimeout(() => fetchCallLogs(1), 0);
+            }}
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </label>
       </div>
       
       <div className="flex items-center space-x-1">
@@ -381,9 +400,9 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   )
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <DynamicHeader 
-        title={title}
+        title="Call Logs"
         onMenuClick={onMenuClick}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={onToggleSidebar}
@@ -461,15 +480,15 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         searchPlaceholder="Search call logs..."
       />
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         {isInitialLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="h-full flex flex-col">
+          <div className="h-full flex flex-col min-h-0">
             <div className="flex-1 overflow-hidden bg-white dark:bg-gray-800 shadow-sm rounded-lg">
-              <div className="overflow-auto" style={{ height: 'calc(100vh - 160px)' }}>
+              <div className="overflow-auto" style={{ height: 'calc(100vh - 120px)' }}>
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-900 sticky top-0 z-10">
                     <tr>
@@ -674,14 +693,17 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                   </tbody>
                 </table>
               </div>
-
-              {/* Fixed Pagination at bottom - Always visible */}
-              <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-10">
-                <PaginationComponent />
-              </div>
             </div>
           </div>
         )}
+      </div>
+      {/* Fixed Pagination at bottom - viewport wide, aligned with main content */}
+      <div className="fixed left-0 right-0 bottom-0 z-30 pointer-events-none">
+        <div className={`pointer-events-auto ${isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64'}`}>
+          <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <PaginationComponent />
+          </div>
+        </div>
       </div>
     </div>
   )

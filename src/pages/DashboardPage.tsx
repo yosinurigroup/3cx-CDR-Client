@@ -249,7 +249,23 @@ export default function DashboardPage() {
     )
   }
 
-  const { summary, areaCodeDistribution, extensionDistribution } = data
+  const { summary, areaCodeDistribution: rawAreaCodeDistribution, extensionDistribution: rawExtensionDistribution } = data
+  
+  // Filter out null/empty area codes for display only
+  const areaCodeDistribution = rawAreaCodeDistribution.filter(item => 
+    item.areaCode && item.areaCode !== 'null' && item.areaCode !== '0' && item.areaCode.trim() !== ''
+  )
+  
+  // Filter out empty/null extensions (incoming calls have blank extensions)
+  const extensionDistribution = rawExtensionDistribution.filter(item => 
+    item.extension && item.extension !== 'null' && item.extension !== '0' && item.extension.trim() !== ''
+  )
+  
+  // Keep original summary count (don't modify it)
+  const updatedSummary = {
+    ...summary,
+    uniqueAreaCodes: summary.uniqueAreaCodes - 1 // Just subtract 1 for the empty area code
+  }
 
   return (
     <div className="min-h-screen p-6 space-y-8 pb-16">
@@ -313,128 +329,128 @@ export default function DashboardPage() {
       </div>
 
       {/* Key Performance Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
         {/* Total Calls */}
         <div 
-          className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-lg shadow-sm border border-blue-200 dark:border-blue-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-blue-200 dark:border-blue-700 hover:shadow-md transition-all duration-200 cursor-pointer min-h-[120px] flex flex-col justify-between"
           onClick={() => navigate('/reports/call-logs')}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Calls</h3>
-              <p className="text-3xl font-bold text-blue-700 dark:text-blue-300">{formatNumber(summary.totalCalls)}</p>
-              <p className="text-xs text-blue-500 dark:text-blue-400">All records</p>
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-blue-600 dark:text-blue-400 truncate">Total Calls</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-blue-700 dark:text-blue-300 leading-tight">{formatNumber(summary.totalCalls)}</p>
             </div>
-            <div className="p-3 bg-blue-600 rounded-full">
-              <FontAwesomeIcon icon={faPhone} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-blue-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faPhone} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-blue-500 dark:text-blue-400 truncate">All records</p>
         </div>
 
         {/* Incoming Calls */}
         <div 
-          className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-lg shadow-sm border border-green-200 dark:border-green-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-green-200 dark:border-green-700 hover:shadow-md transition-all duration-200 cursor-pointer min-h-[120px] flex flex-col justify-between"
           onClick={() => navigate('/reports/call-logs?type=incoming')}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-green-600 dark:text-green-400">Incoming Calls</h3>
-              <p className="text-3xl font-bold text-green-700 dark:text-green-300">{formatNumber(summary.incomingCalls)}</p>
-              <p className="text-xs text-green-500 dark:text-green-400">{summary.incomingPercentage.toFixed(1)}% of total</p>
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-green-600 dark:text-green-400 truncate">Incoming Calls</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-green-700 dark:text-green-300 leading-tight">{formatNumber(summary.incomingCalls)}</p>
             </div>
-            <div className="p-3 bg-green-600 rounded-full">
-              <FontAwesomeIcon icon={faArrowDown} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-green-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faArrowDown} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-green-500 dark:text-green-400 truncate">{summary.incomingPercentage.toFixed(1)}% of total</p>
         </div>
 
         {/* Outgoing Calls */}
         <div 
-          className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-6 rounded-lg shadow-sm border border-orange-200 dark:border-orange-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-orange-200 dark:border-orange-700 hover:shadow-md transition-all duration-200 cursor-pointer min-h-[120px] flex flex-col justify-between"
           onClick={() => navigate('/reports/call-logs?type=outgoing')}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-orange-600 dark:text-orange-400">Outgoing Calls</h3>
-              <p className="text-3xl font-bold text-orange-700 dark:text-orange-300">{formatNumber(summary.outgoingCalls)}</p>
-              <p className="text-xs text-orange-500 dark:text-orange-400">{summary.outgoingPercentage.toFixed(1)}% of total</p>
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-orange-600 dark:text-orange-400 truncate">Outgoing Calls</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-orange-700 dark:text-orange-300 leading-tight">{formatNumber(summary.outgoingCalls)}</p>
             </div>
-            <div className="p-3 bg-orange-600 rounded-full">
-              <FontAwesomeIcon icon={faArrowUp} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-orange-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faArrowUp} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-orange-500 dark:text-orange-400 truncate">{summary.outgoingPercentage.toFixed(1)}% of total</p>
         </div>
         {/* Unique Area Codes */}
         <div 
-          className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 p-6 rounded-lg shadow-sm border border-indigo-200 dark:border-indigo-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-indigo-200 dark:border-indigo-700 hover:shadow-md transition-all duration-200 cursor-pointer min-h-[120px] flex flex-col justify-between"
           onClick={() => navigate('/reports/area-codes')}
         >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Unique Area Codes</h3>
-              <p className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">{formatNumber(summary.uniqueAreaCodes)}</p>
-              <p className="text-xs text-indigo-500 dark:text-indigo-400">Geographic coverage</p>
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-indigo-600 dark:text-indigo-400 truncate">Area Codes</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-indigo-700 dark:text-indigo-300 leading-tight">{formatNumber(updatedSummary.uniqueAreaCodes)}</p>
             </div>
-            <div className="p-3 bg-indigo-600 rounded-full">
-              <FontAwesomeIcon icon={faMapMarkerAlt} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-indigo-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faMapMarkerAlt} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-indigo-500 dark:text-indigo-400 truncate">Geographic coverage</p>
         </div>
 
         {/* Unique Extensions */}
-        <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 p-6 rounded-lg shadow-sm border border-cyan-200 dark:border-cyan-700 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-cyan-600 dark:text-cyan-400">Unique Extensions</h3>
-              <p className="text-3xl font-bold text-cyan-700 dark:text-cyan-300">{formatNumber(summary.uniqueExtensions)}</p>
-              <p className="text-xs text-cyan-500 dark:text-cyan-400">Active users</p>
+        <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 dark:from-cyan-900/20 dark:to-cyan-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-cyan-200 dark:border-cyan-700 hover:shadow-md transition-all duration-200 min-h-[120px] flex flex-col justify-between">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-cyan-600 dark:text-cyan-400 truncate">Extensions</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-cyan-700 dark:text-cyan-300 leading-tight">{formatNumber(summary.uniqueExtensions)}</p>
             </div>
-            <div className="p-3 bg-cyan-600 rounded-full">
-              <FontAwesomeIcon icon={faUsers} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-cyan-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faUsers} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-cyan-500 dark:text-cyan-400 truncate">Active users</p>
         </div>
 
         {/* Total Cost */}
-        <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-6 rounded-lg shadow-sm border border-red-200 dark:border-red-700 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-red-600 dark:text-red-400">Total Cost</h3>
-              <p className="text-3xl font-bold text-red-700 dark:text-red-300">{formatCurrency(summary.totalCost)}</p>
-              <p className="text-xs text-red-500 dark:text-red-400">Call expenses</p>
+        <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-red-200 dark:border-red-700 hover:shadow-md transition-all duration-200 min-h-[120px] flex flex-col justify-between">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-red-600 dark:text-red-400 truncate">Total Cost</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-red-700 dark:text-red-300 leading-tight">{formatCurrency(summary.totalCost)}</p>
             </div>
-            <div className="p-3 bg-red-600 rounded-full">
-              <FontAwesomeIcon icon={faDollarSign} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-red-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faDollarSign} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-red-500 dark:text-red-400 truncate">Call expenses</p>
         </div>
 
         {/* Total Call Time */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-6 rounded-lg shadow-sm border border-purple-200 dark:border-purple-700 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-purple-600 dark:text-purple-400">Total Call Time</h3>
-              <p className="text-3xl font-bold text-purple-700 dark:text-purple-300">{formatDuration(summary.totalDuration)}</p>
-              <p className="text-xs text-purple-500 dark:text-purple-400">Sum of all calls</p>
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-purple-200 dark:border-purple-700 hover:shadow-md transition-all duration-200 min-h-[120px] flex flex-col justify-between">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-purple-600 dark:text-purple-400 truncate">Call Time</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-purple-700 dark:text-purple-300 leading-tight">{formatDuration(summary.totalDuration)}</p>
             </div>
-            <div className="p-3 bg-purple-600 rounded-full">
-              <FontAwesomeIcon icon={faStopwatch} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-purple-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faStopwatch} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-purple-500 dark:text-purple-400 truncate">Sum of all calls</p>
         </div>
 
         {/* Average Duration */}
-        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 p-6 rounded-lg shadow-sm border border-yellow-200 dark:border-yellow-700 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Avg Duration</h3>
-              <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-300">{formatDuration(summary.avgDuration)}</p>
-              <p className="text-xs text-yellow-500 dark:text-yellow-400">Per call average</p>
+        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 p-3 sm:p-4 lg:p-6 rounded-lg shadow-sm border border-yellow-200 dark:border-yellow-700 hover:shadow-md transition-all duration-200 min-h-[120px] flex flex-col justify-between">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-xs sm:text-sm font-medium text-yellow-600 dark:text-yellow-400 truncate">Avg Duration</h3>
+              <p className="text-lg sm:text-2xl lg:text-3xl font-bold text-yellow-700 dark:text-yellow-300 leading-tight">{formatDuration(summary.avgDuration)}</p>
             </div>
-            <div className="p-3 bg-yellow-600 rounded-full">
-              <FontAwesomeIcon icon={faClock} className="h-6 w-6 text-white" />
+            <div className="p-2 sm:p-3 bg-yellow-600 rounded-full flex-shrink-0 ml-2">
+              <FontAwesomeIcon icon={faClock} className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-white" />
             </div>
           </div>
+          <p className="text-xs text-yellow-500 dark:text-yellow-400 truncate">Per call average</p>
         </div>
       </div>
 
@@ -452,7 +468,7 @@ export default function DashboardPage() {
             </div>
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Unique Area Codes</p>
-              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{formatNumber(summary.uniqueAreaCodes)}</p>
+              <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{formatNumber(updatedSummary.uniqueAreaCodes)}</p>
             </div>
           </div>
           
@@ -466,9 +482,9 @@ export default function DashboardPage() {
                   textAnchor="end"
                   height={80}
                   fontSize={12}
-                  className="fill-gray-600 dark:fill-gray-400"
+                  tick={{ fill: '#ffffff' }}
                 />
-                <YAxis fontSize={12} className="fill-gray-600 dark:fill-gray-400" />
+                <YAxis fontSize={12} tick={{ fill: '#ffffff' }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar 
                   dataKey="count" 
@@ -516,9 +532,9 @@ export default function DashboardPage() {
                   textAnchor="end"
                   height={80}
                   fontSize={12}
-                  className="fill-gray-600 dark:fill-gray-400"
+                  tick={{ fill: '#ffffff' }}
                 />
-                <YAxis fontSize={12} className="fill-gray-600 dark:fill-gray-400" />
+                <YAxis fontSize={12} tick={{ fill: '#ffffff' }} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar 
                   dataKey="count" 

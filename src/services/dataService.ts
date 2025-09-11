@@ -202,16 +202,34 @@ export const dataService = {
     page?: number
     limit?: number
     collection?: string
-  }): Promise<ApiResponse<Extension[]>> {
+    search?: string
+    sortBy?: string
+    sortOrder?: string
+  }): Promise<ApiResponse<{
+    extensions: Extension[]
+    pagination: {
+      currentPage: number
+      totalPages: number
+      totalCount: number
+      hasNextPage: boolean
+      hasPrevPage: boolean
+    }
+  }>> {
     try {
       const response = await apiClient.get('/cdr/extensions', { params })
       return {
-        data: response.data.extensions,
-        pagination: response.data.pagination
+        success: true,
+        data: {
+          extensions: response.data.extensions,
+          pagination: response.data.pagination
+        }
       }
     } catch (error: any) {
       console.error('Get extensions error:', error)
-      throw error
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to fetch extensions'
+      }
     }
   },
 
