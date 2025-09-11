@@ -125,6 +125,7 @@ export const dataService = {
     status?: string
     terminationReason?: string
     areaCode?: string
+    extension?: string
     trunkNumber?: string
     collection?: string
   }): Promise<ApiResponse<CallLog[]>> {
@@ -140,12 +141,43 @@ export const dataService = {
     }
   },
 
+  // Export call logs as CSV
+  async exportCallLogs(params: {
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    search?: string
+    dateFrom?: string
+    dateTo?: string
+    callType?: string
+    status?: string
+    terminationReason?: string
+    areaCode?: string
+    trunkNumber?: string
+    collection?: string
+  }): Promise<Blob> {
+    try {
+      const response = await apiClient.get('/cdr/call-logs', {
+        params: { ...params, export: true },
+        responseType: 'blob'
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Export call logs error:', error)
+      throw error
+    }
+  },
+
   // Get area codes with statistics
   async getAreaCodes(params: {
     page?: number
     limit?: number
     sortBy?: string
     sortOrder?: 'asc' | 'desc'
+    search?: string
+    dateFrom?: string
+    dateTo?: string
     collection?: string
   }): Promise<ApiResponse<AreaCode[]>> {
     try {

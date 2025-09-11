@@ -1,5 +1,21 @@
+  // Duration formatter like CallLogsPage
+  const formatDuration = (seconds: number | undefined) => {
+    const numSeconds = typeof seconds === 'number' ? seconds : 0
+    const hours = Math.floor(numSeconds / 3600)
+    const minutes = Math.floor((numSeconds % 3600) / 60)
+    const secs = numSeconds % 60
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`
+  }
 
-import { useState, useEffect, useCallback } from 'react'
+  const formatCurrency = (amount: number | undefined) => {
+    return `$${(amount || 0).toFixed(2)}`
+  }
+
+
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { dataService } from '../services/dataService'
@@ -15,11 +31,13 @@ import {
 import { format } from 'date-fns'
 
 interface LayoutContext {
-  onMenuClick: () => void
+  onMenuClick: () => void;
+  isSidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
 }
 
 export default function AreaCodesPage() {
-  const { onMenuClick } = useOutletContext<LayoutContext>()
+  const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<LayoutContext>()
   const { selectedDataSource, filters, setError } = useData()
   const [areaCodes, setAreaCodes] = useState<AreaCode[]>([])
   const [pagination, setPagination] = useState({
@@ -37,28 +55,47 @@ export default function AreaCodesPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const [showColumnSelector, setShowColumnSelector] = useState(false)
+  // Caching & debounce (match CallLogsPage behavior)
+  const [pageCache, setPageCache] = useState<Map<string, { data: AreaCode[], pagination: any, timestamp: number }>>(new Map())
+  const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
   // Column management similar to CallLogsPage
   const availableColumns = [
     { key: 'areaCode', label: 'Area Code', required: true },
     { key: 'state', label: 'State', required: false },
-    { key: 'totalCalls', label: 'Total Calls', required: true }
+    { key: 'totalCalls', label: 'Total Calls', required: true },
+    { key: 'totalDuration', label: 'Total Duration', required: false },
+    { key: 'totalCost', label: 'Total Cost', required: false }
   ]
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'areaCode', 'state', 'totalCalls'
+    'areaCode', 'state', 'totalCalls', 'totalDuration', 'totalCost'
   ])
 
-  // Fetch area codes data
-  const fetchAreaCodes = useCallback(async (page: number = 1, reset: boolean = false) => {
-    if (!selectedDataSource) return
+  // Cache key builder (match CallLogsPage)
+  const getCacheKey = useCallback((page: number) => {
+    return `${page}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}`
+  }, [sortBy, sortOrder, searchTerm, selectedDataSource, filters])
 
-    if (reset) {
-      setIsInitialLoading(true)
-    } else {
-      setIsLoading(true)
+  // Fetch area codes data with caching
+  const fetchAreaCodes = useCallback(async (page: number = 1, isBackground: boolean = false) => {
+    if (!selectedDataSource) return null
+
+    const cacheKey = getCacheKey(page)
+    const cached = pageCache.get(cacheKey)
+    if (cached && (Date.now() - cached.timestamp) < 300000) {
+      if (!isBackground) {
+        setAreaCodes(cached.data)
+        setPagination(cached.pagination)
+        setIsInitialLoading(false)
+      }
+      return cached
     }
 
     try {
+      if (!isBackground && areaCodes.length === 0) {
+        setIsInitialLoading(true)
+      }
+
       const params = {
         collection: selectedDataSource,
         page,
@@ -71,47 +108,85 @@ export default function AreaCodesPage() {
       }
 
       const response: ApiResponse<AreaCode[]> = await dataService.getAreaCodes(params)
-      
-      if (response.success && response.data) {
-        setAreaCodes(response.data)
-        setPagination(prev => ({
-          ...prev,
-          currentPage: response.pagination?.currentPage || page,
-          totalPages: response.pagination?.totalPages || 1,
-          totalCount: response.pagination?.totalCount || 0,
-          hasNextPage: response.pagination?.hasNextPage || false,
-          hasPrevPage: response.pagination?.hasPrevPage || false
-        }))
-      } else {
-        setError('Failed to load area code data')
+
+      const cacheData = {
+        data: response.data || [],
+        pagination: response.pagination!,
+        timestamp: Date.now()
       }
-    } catch (err) {
+
+      setPageCache(prev => {
+        const newCache = new Map(prev)
+        newCache.set(cacheKey, cacheData)
+        if (newCache.size > 50) {
+          const oldestKey = Array.from(newCache.keys())[0]
+          newCache.delete(oldestKey)
+        }
+        return newCache
+      })
+
+      if (!isBackground) {
+        setAreaCodes(response.data || [])
+        if (response.pagination) setPagination(response.pagination)
+        setIsInitialLoading(false)
+      }
+
+      return cacheData
+    } catch (err: any) {
       console.error('Error fetching area codes:', err)
-      setError('An unexpected error occurred while loading area code data')
+      if (!isBackground) setError(err.response?.data?.message || 'Failed to load area code data')
+      return null
     } finally {
-      setIsLoading(false)
-      setIsInitialLoading(false)
+      if (!isBackground) setIsLoading(false)
     }
-  }, [selectedDataSource, searchTerm, sortBy, sortOrder, filters, pagination.limit, setError])
+  }, [selectedDataSource, searchTerm, sortBy, sortOrder, filters, pagination.limit, setError, pageCache, getCacheKey, areaCodes.length])
+
+  // Prefetch adjacent pages like CallLogsPage
+  const prefetchPages = useCallback((currentPage: number, totalPages: number) => {
+    const pagesToPrefetch = [currentPage + 1, currentPage + 2, currentPage - 1]
+      .filter(p => p > 0 && p <= totalPages)
+    pagesToPrefetch.forEach((p, i) => {
+      const key = getCacheKey(p)
+      if (!pageCache.has(key)) {
+        setTimeout(() => fetchAreaCodes(p, true), i * 100)
+      }
+    })
+  }, [pageCache, getCacheKey, fetchAreaCodes])
 
   // Search handler with debounce
   const handleSearch = useCallback((value: string) => {
-    setSearchTerm(value)
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchTerm(value)
+      setPageCache(new Map())
+    }, 300)
   }, [])
 
   // Sort handler
   const handleSort = (column: string) => {
+    setPageCache(new Map())
     if (sortBy === column) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+      const nextOrder = sortOrder === 'asc' ? 'desc' : 'asc'
+      setSortOrder(nextOrder)
     } else {
       setSortBy(column)
       setSortOrder('desc')
     }
+    // Kick an immediate reload to page 1
+    setTimeout(() => fetchAreaCodes(1), 0)
   }
 
   // Pagination handlers
   const handlePageChange = (page: number) => {
-    fetchAreaCodes(page)
+    const cacheKey = getCacheKey(page)
+    const cached = pageCache.get(cacheKey)
+    if (cached && (Date.now() - cached.timestamp) < 300000) {
+      setAreaCodes(cached.data)
+      setPagination(cached.pagination)
+      setTimeout(() => prefetchPages(page, cached.pagination.totalPages), 50)
+    } else {
+      fetchAreaCodes(page)
+    }
   }
 
   // Export handler
@@ -147,14 +222,86 @@ export default function AreaCodesPage() {
     return new Intl.NumberFormat().format(num)
   }
 
+  // Pagination component - match CallLogsPage style
+  const PaginationComponent = () => (
+    <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
+        <span>
+          Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to{' '}
+          {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)} of{' '}
+          {pagination.totalCount.toLocaleString()} entries
+        </span>
+      </div>
+
+      <div className="flex items-center space-x-1">
+        <button
+          onClick={() => handlePageChange(1)}
+          disabled={pagination.currentPage === 1}
+          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="First page"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <button
+          onClick={() => handlePageChange(pagination.currentPage - 1)}
+          disabled={!pagination.hasPrevPage}
+          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Previous page"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        <div className="flex items-center space-x-1 text-xs">
+          <span className="text-gray-600 dark:text-gray-400">Page</span>
+          <span className="px-2 py-1 bg-blue-600 text-white rounded text-xs font-medium">
+            {pagination.currentPage}
+          </span>
+          <span className="text-gray-600 dark:text-gray-400">of {pagination.totalPages.toLocaleString()}</span>
+        </div>
+
+        <button
+          onClick={() => handlePageChange(pagination.currentPage + 1)}
+          disabled={!pagination.hasNextPage}
+          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Next page"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        <button
+          onClick={() => handlePageChange(pagination.totalPages)}
+          disabled={pagination.currentPage === pagination.totalPages}
+          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Last page"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+
   // Effect to fetch data when dependencies change
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchAreaCodes(1, true)
-    }, 300) // Debounce search
+    setPageCache(new Map())
+    setIsInitialLoading(true)
+    fetchAreaCodes(1)
+  }, [selectedDataSource, sortBy, sortOrder, searchTerm, JSON.stringify(filters)])
 
-    return () => clearTimeout(timeoutId)
-  }, [fetchAreaCodes])
+  // Prefetch adjacent pages when data loads
+  useEffect(() => {
+    if (areaCodes.length > 0 && pagination.totalPages > 1 && !isInitialLoading) {
+      setTimeout(() => prefetchPages(pagination.currentPage, pagination.totalPages), 200)
+    }
+  }, [areaCodes.length, pagination.currentPage, pagination.totalPages, isInitialLoading, prefetchPages])
 
   // Effect to refetch when data source changes
   useEffect(() => {
@@ -169,6 +316,8 @@ export default function AreaCodesPage() {
         title="Area Codes"
         subtitle="Area code analysis and call statistics"
         onMenuClick={onMenuClick}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={onToggleSidebar}
         showSearch={true}
         searchValue={searchTerm}
         onSearchChange={handleSearch}
@@ -255,7 +404,7 @@ export default function AreaCodesPage() {
                     <tr>
                       {visibleColumns.includes('areaCode') && (
                         <th 
-                          className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                           onClick={() => handleSort('areaCode')}
                         >
                           <div className="flex items-center space-x-1">
@@ -270,7 +419,7 @@ export default function AreaCodesPage() {
                       )}
                       {visibleColumns.includes('state') && (
                         <th 
-                          className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                           onClick={() => handleSort('state')}
                         >
                           <div className="flex items-center space-x-1">
@@ -285,7 +434,7 @@ export default function AreaCodesPage() {
                       )}
                       {visibleColumns.includes('totalCalls') && (
                         <th 
-                          className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                           onClick={() => handleSort('totalCalls')}
                         >
                           <div className="flex items-center space-x-1">
@@ -298,12 +447,42 @@ export default function AreaCodesPage() {
                           </div>
                         </th>
                       )}
+                      {visibleColumns.includes('totalDuration') && (
+                        <th 
+                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('totalDuration')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Total Duration</span>
+                            {sortBy === 'totalDuration' && (
+                              <span className="text-blue-500">
+                                {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      )}
+                      {visibleColumns.includes('totalCost') && (
+                        <th 
+                          className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
+                          onClick={() => handleSort('totalCost')}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Total Cost</span>
+                            {sortBy === 'totalCost' && (
+                              <span className="text-blue-500">
+                                {sortOrder === 'asc' ? <ArrowUpIcon className="h-3 w-3" /> : <ArrowDownIcon className="h-3 w-3" />}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {areaCodes.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={5} className="px-4 py-6 text-center text-gray-500 dark:text-gray-400 text-xs">
                           {isLoading ? (
                             <div className="flex items-center justify-center">
                               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
@@ -316,32 +495,36 @@ export default function AreaCodesPage() {
                       </tr>
                     ) : (
                       areaCodes.map((areaCode, index) => (
-                        <tr key={`${areaCode.areaCode}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <tr key={`${areaCode.areaCode}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700 text-xs">
                           {visibleColumns.includes('areaCode') && (
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                                {areaCode.areaCode || 'Unknown'}
-                              </div>
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                              {areaCode.areaCode || 'Unknown'}
                             </td>
                           )}
                           {visibleColumns.includes('state') && (
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900 dark:text-gray-100">
-                                <span className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${
-                                  areaCode.state && areaCode.state !== 'Unknown'
-                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-                                }`}>
-                                  {areaCode.state || 'Unknown'}
-                                </span>
-                              </div>
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                              <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                                areaCode.state && areaCode.state !== 'Unknown'
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                              }`}>
+                                {areaCode.state || 'Unknown'}
+                              </span>
                             </td>
                           )}
                           {visibleColumns.includes('totalCalls') && (
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                                {formatNumber(areaCode.totalCalls)}
-                              </div>
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                              {formatNumber(areaCode.totalCalls)}
+                            </td>
+                          )}
+                          {visibleColumns.includes('totalDuration') && (
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                              {formatDuration(areaCode.totalDuration)}
+                            </td>
+                          )}
+                          {visibleColumns.includes('totalCost') && (
+                            <td className="px-4 py-2 whitespace-nowrap text-gray-900 dark:text-gray-100">
+                              {formatCurrency(areaCode.totalCost)}
                             </td>
                           )}
                         </tr>
@@ -352,90 +535,10 @@ export default function AreaCodesPage() {
               </div>
             </div>
 
-            {/* Pagination */}
-            {pagination.totalPages > 1 && (
-              <div className="bg-white dark:bg-gray-800 px-4 py-3 border-t border-gray-200 dark:border-gray-700 sm:px-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
-                      disabled={!pagination.hasPrevPage}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
-                      disabled={!pagination.hasNextPage}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Showing{' '}
-                        <span className="font-medium">
-                          {((pagination.currentPage - 1) * pagination.limit) + 1}
-                        </span>{' '}
-                        to{' '}
-                        <span className="font-medium">
-                          {Math.min(pagination.currentPage * pagination.limit, pagination.totalCount)}
-                        </span>{' '}
-                        of{' '}
-                        <span className="font-medium">{formatNumber(pagination.totalCount)}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button
-                          onClick={() => handlePageChange(pagination.currentPage - 1)}
-                          disabled={!pagination.hasPrevPage}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="sr-only">Previous</span>
-                          <ArrowUpIcon className="h-5 w-5 rotate-[-90deg]" aria-hidden="true" />
-                        </button>
-                        
-                        {/* Page numbers */}
-                        {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                          const pageNumber = Math.max(1, Math.min(
-                            pagination.totalPages - 4,
-                            pagination.currentPage - 2
-                          )) + i
-                          
-                          if (pageNumber > pagination.totalPages) return null
-                          
-                          return (
-                            <button
-                              key={pageNumber}
-                              onClick={() => handlePageChange(pageNumber)}
-                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                pageNumber === pagination.currentPage
-                                  ? 'z-10 bg-indigo-50 dark:bg-indigo-900 border-indigo-500 dark:border-indigo-400 text-indigo-600 dark:text-indigo-200'
-                                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600'
-                              }`}
-                            >
-                              {pageNumber}
-                            </button>
-                          )
-                        })}
-                        
-                        <button
-                          onClick={() => handlePageChange(pagination.currentPage + 1)}
-                          disabled={!pagination.hasNextPage}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="sr-only">Next</span>
-                          <ArrowUpIcon className="h-5 w-5 rotate-90" aria-hidden="true" />
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Sticky Pagination at bottom - Always visible */}
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-10">
+              <PaginationComponent />
+            </div>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
@@ -54,6 +55,8 @@ interface DashboardData {
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1']
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
+  const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<any>();
   const { selectedDataSource } = useData()
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -128,6 +131,60 @@ export default function DashboardPage() {
     fetchDashboardData()
   }
 
+  // Handle area code click to navigate to filtered call logs
+  const handleAreaCodeClick = (areaCode: string) => {
+    navigate(`/reports/call-logs?areaCode=${encodeURIComponent(areaCode)}`)
+  }
+
+  // Handle extension click to navigate to filtered call logs
+  const handleExtensionClick = (extension: string) => {
+    navigate(`/reports/call-logs?extension=${encodeURIComponent(extension)}`)
+  }
+
+  // Custom tooltip component with enhanced styling
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload
+      return (
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 min-w-[200px]">
+          <div className="font-semibold text-gray-900 dark:text-white mb-2 text-center">
+            {label}
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Calls:</span>
+              <span className="font-medium text-blue-600 dark:text-blue-400">{formatNumber(payload[0].value)}</span>
+            </div>
+            {data.percentage && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Percentage:</span>
+                <span className="font-medium text-green-600 dark:text-green-400">{data.percentage.toFixed(1)}%</span>
+              </div>
+            )}
+            {data.totalCost && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Total Cost:</span>
+                <span className="font-medium text-red-600 dark:text-red-400">{formatCurrency(data.totalCost)}</span>
+              </div>
+            )}
+            {data.totalDuration && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">Duration:</span>
+                <span className="font-medium text-purple-600 dark:text-purple-400">{formatDuration(data.totalDuration)}</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              Click to view detailed logs
+            </div>
+          </div>
+        </div>
+      )
+    }
+    return null
+  }
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -198,7 +255,48 @@ export default function DashboardPage() {
     <div className="min-h-screen p-6 space-y-8 pb-16">
       {/* Header */}
       <div className="flex justify-between items-center sticky top-0 bg-gray-50 dark:bg-gray-900 py-4 z-10 border-b border-gray-200 dark:border-gray-700">
-        <div>
+        <div className="flex items-center gap-4">
+          {/* Mobile menu button */}
+          <button
+            type="button"
+            className="lg:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-300"
+            onClick={onMenuClick}
+          >
+            <span className="sr-only">Open sidebar</span>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="hidden lg:block -m-2.5 p-2.5 text-gray-700 dark:text-gray-300"
+            onClick={onToggleSidebar}
+          >
+            <span className="sr-only">Toggle sidebar</span>
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d={isSidebarCollapsed ? "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" : "M3.75 6.75h16.5M3.75 12h10.5m-10.5 5.25h16.5"}
+              />
+            </svg>
+          </button>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <FontAwesomeIcon icon={faTachometerAlt} className="text-blue-600" />
             Dashboard
@@ -359,24 +457,13 @@ export default function DashboardPage() {
                   className="fill-gray-600 dark:fill-gray-400"
                 />
                 <YAxis fontSize={12} className="fill-gray-600 dark:fill-gray-400" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                  formatter={(value: any, _name: string) => [
-                    formatNumber(value),
-                    'Calls'
-                  ]}
-                  labelFormatter={(label) => `Area Code: ${label}`}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Bar 
                   dataKey="count" 
                   fill="#3B82F6" 
                   radius={[4, 4, 0, 0]}
-                  className="hover:opacity-80 transition-opacity"
+                  className="hover:opacity-80 transition-opacity cursor-pointer"
+                  onClick={(data) => handleAreaCodeClick(data.areaCode)}
                 >
                   <LabelList 
                     dataKey="count" 
@@ -420,24 +507,13 @@ export default function DashboardPage() {
                   className="fill-gray-600 dark:fill-gray-400"
                 />
                 <YAxis fontSize={12} className="fill-gray-600 dark:fill-gray-400" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                  }}
-                  formatter={(value: any, _name: string) => [
-                    formatNumber(value),
-                    'Calls'
-                  ]}
-                  labelFormatter={(label) => `Extension: ${label}`}
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Bar 
                   dataKey="count" 
                   fill="#10B981" 
                   radius={[4, 4, 0, 0]}
-                  className="hover:opacity-80 transition-opacity"
+                  className="hover:opacity-80 transition-opacity cursor-pointer"
+                  onClick={(data) => handleExtensionClick(data.extension)}
                 >
                   <LabelList 
                     dataKey="count" 
@@ -476,6 +552,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="count"
+                    onClick={(data) => handleAreaCodeClick(data.areaCode)}
                   >
                     {areaCodeDistribution.slice(0, 10).map((_entry, index) => (
                       <Cell 
@@ -485,15 +562,7 @@ export default function DashboardPage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    formatter={(value: any) => [formatNumber(value), 'Calls']}
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
+                  <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -521,6 +590,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     fill="#8884d8"
                     dataKey="count"
+                    onClick={(data) => handleExtensionClick(data.extension)}
                   >
                     {extensionDistribution.slice(0, 10).map((_entry, index) => (
                       <Cell 
@@ -530,53 +600,13 @@ export default function DashboardPage() {
                       />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    formatter={(value: any) => [formatNumber(value), 'Calls']}
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
+                  <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </div>
         </div>
 
-        {/* Performance Metrics */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-3">
-              <FontAwesomeIcon icon={faChartBar} className="text-purple-600" />
-              Call Performance Metrics
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Incoming vs Outgoing call breakdown</p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-              <div className="text-4xl font-bold text-green-600 dark:text-green-400 mb-2">
-                {formatNumber(summary.incomingCalls)}
-              </div>
-              <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">Incoming Calls</div>
-              <div className="text-xs text-green-600 dark:text-green-400">
-                {summary.incomingPercentage.toFixed(1)}% of total
-              </div>
-            </div>
-            
-            <div className="text-center p-6 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-700">
-              <div className="text-4xl font-bold text-orange-600 dark:text-orange-400 mb-2">
-                {formatNumber(summary.outgoingCalls)}
-              </div>
-              <div className="text-sm font-medium text-gray-900 dark:text-white mb-1">Outgoing Calls</div>
-              <div className="text-xs text-orange-600 dark:text-orange-400">
-                {summary.outgoingPercentage.toFixed(1)}% of total
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )

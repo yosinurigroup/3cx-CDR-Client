@@ -2,14 +2,16 @@ import { ReactNode } from 'react'
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 interface DynamicHeaderProps {
-  title: string
-  subtitle?: string
-  showSearch?: boolean
-  searchValue?: string
-  onSearchChange?: (value: string) => void
-  searchPlaceholder?: string
-  actions?: ReactNode
-  onMenuClick: () => void
+  title: string;
+  subtitle?: string;
+  showSearch?: boolean;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
+  actions?: ReactNode;
+  onMenuClick: () => void;
+  isSidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export default function DynamicHeader({
@@ -20,7 +22,9 @@ export default function DynamicHeader({
   onSearchChange,
   searchPlaceholder = 'Search...',
   actions,
-  onMenuClick
+  onMenuClick,
+  isSidebarCollapsed,
+  onToggleSidebar
 }: DynamicHeaderProps) {
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
@@ -46,6 +50,28 @@ export default function DynamicHeader({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              </svg>
+            </button>
+
+            {/* Toggle button for desktop */}
+            <button
+              type="button"
+              className="hidden lg:block -m-2.5 p-2.5 text-gray-700 dark:text-gray-300"
+              onClick={onToggleSidebar}
+            >
+              <span className="sr-only">Toggle sidebar</span>
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d={isSidebarCollapsed ? "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" : "M3.75 6.75h16.5M3.75 12h10.5m-10.5 5.25h16.5"}
                 />
               </svg>
             </button>

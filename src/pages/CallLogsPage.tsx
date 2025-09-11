@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
 import { dataService } from '../services/dataService'
 import type { CallLog, ApiResponse } from '../services/dataService'
@@ -20,12 +20,15 @@ interface CallLogsPageProps {
 }
 
 interface LayoutContext {
-  onMenuClick: () => void
+  onMenuClick: () => void;
+  isSidebarCollapsed: boolean;
+  onToggleSidebar: () => void;
 }
 
 export default function CallLogsPage({ callType }: CallLogsPageProps) {
-  const { onMenuClick } = useOutletContext<LayoutContext>()
+  const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<LayoutContext>()
   const { selectedDataSource, filters, setError } = useData()
+  const [searchParams] = useSearchParams()
   const [callLogs, setCallLogs] = useState<CallLog[]>([])
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -121,6 +124,10 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         setIsInitialLoading(true)
       }
 
+      // Get URL parameters for filtering
+      const urlAreaCode = searchParams.get('areaCode')
+      const urlExtension = searchParams.get('extension')
+
       const params = {
         page,
         limit: 25,
@@ -132,7 +139,8 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         status: filters.status,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
-        areaCode: filters.areaCode,
+        areaCode: urlAreaCode || filters.areaCode,
+        extension: urlExtension || undefined,
         trunkNumber: filters.trunkNumber,
         terminationReason: filters.terminationReason
       }
@@ -220,7 +228,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
     }
   }, [getCacheKey, pageCache, fetchCallLogs, prefetchPages])
 
-  // Debounced search
+  // Debounced search (reduced delay for snappier UX)
   const handleSearch = useCallback((value: string) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
@@ -229,7 +237,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
     searchTimeoutRef.current = setTimeout(() => {
       setSearchTerm(value)
       setPageCache(new Map())
-    }, 300)
+    }, 150)
   }, [])
 
   // Handle sort
@@ -257,13 +265,19 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         dateTo: filters.dateTo,
         areaCode: filters.areaCode,
         trunkNumber: filters.trunkNumber,
-        terminationReason: filters.terminationReason,
-        export: true
+        terminationReason: filters.terminationReason
       }
 
-      // Note: Export functionality would need to be implemented in dataService
-      console.log('Export functionality not yet implemented', params)
-      // TODO: Implement export functionality
+      const blob = await dataService.exportCallLogs(params)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const dateStr = new Date().toISOString().slice(0,10)
+      a.download = `call-logs-${dateStr}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
     } catch (error: any) {
       setError(error.response?.data?.message || 'Failed to export call logs')
     }
@@ -362,6 +376,8 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
       <DynamicHeader 
         title={title}
         onMenuClick={onMenuClick}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={onToggleSidebar}
         showSearch={true}
         actions={
           <>

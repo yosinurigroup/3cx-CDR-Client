@@ -15,12 +15,18 @@ import {
   faSun,
   faMoon,
   faSignOutAlt,
-  faTachometerAlt
+  faTachometerAlt,
+  faChevronLeft,
+  faChevronRight,
+  faChartLine,
+  faDatabase
 } from '@fortawesome/free-solid-svg-icons'
 
 interface SidebarProps {
-  open: boolean
-  setOpen: (open: boolean) => void
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  isCollapsed: boolean;
+  setCollapsed: (collapsed: boolean) => void;
 }
 
 const navigation = [
@@ -32,7 +38,7 @@ const navigation = [
   { name: 'Settings', href: '/system/settings', icon: faCog },
 ]
 
-export default function Sidebar({ open, setOpen }: SidebarProps) {
+export default function Sidebar({ open, setOpen, isCollapsed, setCollapsed }: SidebarProps) {
   const location = useLocation()
   const { hasPermission, user, logout } = useAuth()
   const { selectedDataSource, setDataSource } = useData()
@@ -86,7 +92,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
             >
               <Dialog.Panel className="relative mr-16 flex w-full max-w-xs flex-1">
                 <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white dark:bg-gray-900 px-6 pb-2">
-                  <div className="flex h-16 shrink-0 items-center">
+                  <div className={`flex h-16 shrink-0 items-center ${isCollapsed ? 'justify-center' : ''}`}>
                     <h1 className="text-xl font-bold text-gray-900 dark:text-white">3CX Analytics</h1>
                   </div>
                   
@@ -94,7 +100,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                   <div className="relative">
                     <button
                       type="button"
-                      className="relative w-full cursor-pointer rounded-md bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6"
+                      className={`relative w-full cursor-pointer rounded-md bg-white dark:bg-gray-800 py-2 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
                       onClick={() => setDropdownOpen(!dropdownOpen)}
                     >
                       <span className="block truncate">{currentOption?.label}</span>
@@ -146,8 +152,8 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                                 }`}
                                 onClick={() => setOpen(false)}
                               >
-                                <FontAwesomeIcon icon={item.icon} className="w-5 h-5" />
-                                {item.name}
+                                <FontAwesomeIcon icon={item.icon} className={`h-6 w-6 flex-shrink-0 ${isCollapsed ? 'mx-auto' : ''}`} />
+                                <span className={`${isCollapsed ? 'hidden' : 'block'}`}>{item.name}</span>
                               </Link>
                             </li>
                           ))}
@@ -157,7 +163,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                   </nav>
                   
                   {/* Bottom section with theme toggle and user info - Desktop */}
-                  <div className="mt-auto border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${isCollapsed ? 'hidden' : 'block'}`}>
                     {/* Theme toggle */}
                     <button
                       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -192,23 +198,33 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
       </Transition.Root>
 
       {/* Static sidebar for desktop */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
+      <div className={`hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:flex-col transition-all duration-300 ease-in-out ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}`}>
         <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6">
-          <div className="flex h-16 shrink-0 items-center">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">3CX Analytics</h1>
+          <div className={`flex h-16 shrink-0 items-center ${isCollapsed ? 'justify-center' : ''}`}>
+            {isCollapsed ? (
+              <FontAwesomeIcon icon={faChartLine} className="h-8 w-8 text-indigo-600" />
+            ) : (
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">3CX Analytics</h1>
+            )}
           </div>
           
           {/* Data Source Dropdown - Desktop */}
           <div className="relative">
             <button
               type="button"
-              className="relative w-full cursor-pointer rounded-md bg-white dark:bg-gray-800 py-2 pl-3 pr-10 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6"
+              className={`relative w-full cursor-pointer rounded-md bg-white dark:bg-gray-800 py-2 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
               onClick={() => setDropdownOpen(!dropdownOpen)}
             >
-              <span className="block truncate">{currentOption?.label}</span>
-              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                <ChevronDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-              </span>
+              {isCollapsed ? (
+                <FontAwesomeIcon icon={faDatabase} className="h-5 w-5 text-gray-400" />
+              ) : (
+                <>
+                  <span className="block truncate">{currentOption?.label}</span>
+                  <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                    <ChevronDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                  </span>
+                </>
+              )}
             </button>
 
             {dropdownOpen && (
@@ -253,8 +269,8 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
                             : 'text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800'
                         }`}
                       >
-                        <FontAwesomeIcon icon={item.icon} className="w-5 h-5" />
-                        {item.name}
+                        <FontAwesomeIcon icon={item.icon} className={`h-6 w-6 ${isCollapsed ? 'mx-auto' : ''}`} />
+                        <span className={`${isCollapsed ? 'hidden' : 'block'}`}>{item.name}</span>
                       </Link>
                     </li>
                   ))}
@@ -264,16 +280,7 @@ export default function Sidebar({ open, setOpen }: SidebarProps) {
           </nav>
           
           {/* Bottom section with theme toggle and user info - Desktop */}
-          <div className="mt-auto border-t border-gray-200 dark:border-gray-700 pt-4">
-            {/* Theme toggle */}
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="flex items-center gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800 w-full"
-            >
-              <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} className="w-5 h-5" />
-              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            </button>
-            
+          <div className={`border-t border-gray-200 dark:border-gray-700 pt-4 ${isCollapsed ? 'hidden' : 'block'}`}>
             {/* User info */}
             <div className="mt-2 p-2 rounded-md bg-gray-50 dark:bg-gray-800">
               <div className="text-sm font-medium text-gray-900 dark:text-white">
