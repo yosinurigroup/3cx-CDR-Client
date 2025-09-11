@@ -315,7 +315,10 @@ export default function DashboardPage() {
       {/* Key Performance Indicators */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8 gap-6">
         {/* Total Calls */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-lg shadow-sm border border-blue-200 dark:border-blue-700 hover:shadow-md transition-all duration-200">
+        <div 
+          className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-lg shadow-sm border border-blue-200 dark:border-blue-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          onClick={() => navigate('/reports/call-logs')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Calls</h3>
@@ -329,7 +332,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Incoming Calls */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-lg shadow-sm border border-green-200 dark:border-green-700 hover:shadow-md transition-all duration-200">
+        <div 
+          className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-lg shadow-sm border border-green-200 dark:border-green-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          onClick={() => navigate('/reports/call-logs?type=incoming')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium text-green-600 dark:text-green-400">Incoming Calls</h3>
@@ -343,7 +349,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Outgoing Calls */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-6 rounded-lg shadow-sm border border-orange-200 dark:border-orange-700 hover:shadow-md transition-all duration-200">
+        <div 
+          className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 p-6 rounded-lg shadow-sm border border-orange-200 dark:border-orange-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          onClick={() => navigate('/reports/call-logs?type=outgoing')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium text-orange-600 dark:text-orange-400">Outgoing Calls</h3>
@@ -356,7 +365,10 @@ export default function DashboardPage() {
           </div>
         </div>
         {/* Unique Area Codes */}
-        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 p-6 rounded-lg shadow-sm border border-indigo-200 dark:border-indigo-700 hover:shadow-md transition-all duration-200">
+        <div 
+          className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 p-6 rounded-lg shadow-sm border border-indigo-200 dark:border-indigo-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          onClick={() => navigate('/reports/area-codes')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Unique Area Codes</h3>

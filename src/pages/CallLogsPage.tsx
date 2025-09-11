@@ -26,9 +26,10 @@ interface LayoutContext {
 }
 
 export default function CallLogsPage({ callType }: CallLogsPageProps) {
-  const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<LayoutContext>()
-  const { selectedDataSource, filters, setError } = useData()
-  const [searchParams] = useSearchParams()
+  const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<LayoutContext>();
+  const { selectedDataSource, filters, setError } = useData();
+  const [searchParams] = useSearchParams();
+  const urlCallType = searchParams.get('type') as 'incoming' | 'outgoing' | undefined;
   const [callLogs, setCallLogs] = useState<CallLog[]>([])
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -97,12 +98,20 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   const [isInitialLoading, setIsInitialLoading] = useState(true)
   const searchTimeoutRef = useRef<NodeJS.Timeout>()
 
-  const title = callType ? `${callType.charAt(0).toUpperCase() + callType.slice(1)} Calls` : 'Call Logs'
+  
+
+  
+
+  const title = urlCallType
+    ? `${urlCallType.charAt(0).toUpperCase() + urlCallType.slice(1)} Calls`
+    : callType
+    ? `${callType.charAt(0).toUpperCase() + callType.slice(1)} Calls`
+    : 'Call Logs';
 
   // 🪄 MAGIC: Generate cache key
   const getCacheKey = useCallback((page: number) => {
-    return `${page}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}`
-  }, [sortBy, sortOrder, searchTerm, selectedDataSource, filters])
+    return `${page}-${sortBy}-${sortOrder}-${searchTerm}-${selectedDataSource}-${JSON.stringify(filters)}-${urlCallType}`;
+  }, [sortBy, sortOrder, searchTerm, selectedDataSource, filters, urlCallType]);
 
   // 🪄 MAGIC: Fetch with caching
   const fetchCallLogs = useCallback(async (page = 1, isBackground = false) => {
@@ -125,8 +134,8 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
       }
 
       // Get URL parameters for filtering
-      const urlAreaCode = searchParams.get('areaCode')
-      const urlExtension = searchParams.get('extension')
+      const urlAreaCode = searchParams.get('areaCode');
+      const urlExtension = searchParams.get('extension');
 
       const params = {
         page,
@@ -135,7 +144,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         sortOrder,
         search: searchTerm,
         collection: selectedDataSource,
-        callType: callType || filters.callType,
+        callType: urlCallType || callType || filters.callType,
         status: filters.status,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
@@ -182,7 +191,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
       }
       return null
     }
-  }, [getCacheKey, pageCache, callLogs.length, sortBy, sortOrder, searchTerm, selectedDataSource, callType, filters, setError])
+  }, [getCacheKey, pageCache, callLogs.length, sortBy, sortOrder, searchTerm, selectedDataSource, callType, filters, setError, urlCallType]);
 
   // 🪄 MAGIC: Prefetch adjacent pages
   const prefetchPages = useCallback((currentPage: number, totalPages: number) => {
@@ -195,14 +204,14 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         setTimeout(() => fetchCallLogs(page, true), index * 100)
       }
     })
-  }, [getCacheKey, pageCache, fetchCallLogs])
+  }, [getCacheKey, pageCache, fetchCallLogs]);
 
   // Load data on mount and filter changes
   useEffect(() => {
-    setPageCache(new Map())
-    setIsInitialLoading(true)
-    fetchCallLogs(1)
-  }, [selectedDataSource, callType, filters, sortBy, sortOrder, searchTerm])
+    setPageCache(new Map());
+    setIsInitialLoading(true);
+    fetchCallLogs(1);
+  }, [selectedDataSource, callType, filters, sortBy, sortOrder, searchTerm, urlCallType]);
 
   // Prefetch adjacent pages when data loads
   useEffect(() => {
@@ -259,29 +268,29 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         sortOrder,
         search: searchTerm,
         collection: selectedDataSource,
-        callType: callType || filters.callType,
+        callType: urlCallType || callType || filters.callType,
         status: filters.status,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         areaCode: filters.areaCode,
         trunkNumber: filters.trunkNumber,
         terminationReason: filters.terminationReason
-      }
+      };
 
-      const blob = await dataService.exportCallLogs(params)
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const dateStr = new Date().toISOString().slice(0,10)
-      a.download = `call-logs-${dateStr}.csv`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      window.URL.revokeObjectURL(url)
+      const blob = await dataService.exportCallLogs(params);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0,10);
+      a.download = `call-logs-${dateStr}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (error: any) {
-      setError(error.response?.data?.message || 'Failed to export call logs')
+      setError(error.response?.data?.message || 'Failed to export call logs');
     }
-  }, [sortBy, sortOrder, searchTerm, selectedDataSource, callType, filters, setError])
+  }, [sortBy, sortOrder, searchTerm, selectedDataSource, callType, filters, setError, urlCallType]);
 
   // Format duration
   const formatDuration = (seconds: number | string) => {
