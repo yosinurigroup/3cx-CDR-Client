@@ -402,7 +402,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <DynamicHeader 
-        title="Call Logs"
+        title={title}
         onMenuClick={onMenuClick}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={onToggleSidebar}
