@@ -16,8 +16,6 @@ import {
   faMoon,
   faSignOutAlt,
   faTachometerAlt,
-  faChevronLeft,
-  faChevronRight,
   faChartLine,
   faDatabase
 } from '@fortawesome/free-solid-svg-icons'
@@ -38,7 +36,7 @@ const navigation = [
   { name: 'Settings', href: '/system/settings', icon: faCog },
 ]
 
-export default function Sidebar({ open, setOpen, isCollapsed, setCollapsed }: SidebarProps) {
+export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
   const location = useLocation()
   const { hasPermission, user, logout } = useAuth()
   const { selectedDataSource, setDataSource } = useData()
