@@ -27,7 +27,7 @@ interface LayoutContext {
 
 export default function CallLogsPage({ callType }: CallLogsPageProps) {
   const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<LayoutContext>();
-  const { selectedDataSource, filters, setError } = useData();
+  const { selectedDataSource, filters, setError, setFilters } = useData();
   const [searchParams] = useSearchParams();
   const urlCallType = searchParams.get('type') as 'incoming' | 'outgoing' | undefined;
   const [callLogs, setCallLogs] = useState<CallLog[]>([])
@@ -67,7 +67,20 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         { key: 'to', label: 'To', required: true },
         { key: 'duration', label: 'Duration', required: true },
         { key: 'trunkNumber', label: 'Trunk Number', required: false },
-        { key: 'terminationReason', label: 'Termination Reason', required: false }
+        { key: 'terminationReason', label: 'Termination Reason', required: false },
+        // Extended optional columns
+        { key: 'historyId', label: 'History id', required: false },
+        { key: 'callId', label: 'Call id', required: false },
+        { key: 'startTimeCol', label: 'Start Time', required: false },
+        { key: 'endTimeCol', label: 'End Time', required: false },
+        { key: 'chain', label: 'Chain', required: false },
+        { key: 'fromType', label: 'From Type', required: false },
+        { key: 'finalType', label: 'Final Type', required: false },
+        { key: 'fromDispname', label: 'From Dispname', required: false },
+        { key: 'toDispname', label: 'To Dispname', required: false },
+        { key: 'finalDispname', label: 'Final Dispname', required: false },
+        { key: 'missedQueueCalls', label: 'Missed Queue Calls', required: false },
+        { key: 'rawStream', label: 'Raw Stream', required: false }
       ]
     } else {
       return [
@@ -81,7 +94,20 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         { key: 'extension', label: 'Extension', required: true },
         { key: 'cost', label: 'Cost', required: true },
         { key: 'trunkNumber', label: 'Trunk Number', required: false },
-        { key: 'terminationReason', label: 'Termination Reason', required: false }
+        { key: 'terminationReason', label: 'Termination Reason', required: false },
+        // Extended optional columns
+        { key: 'historyId', label: 'History id', required: false },
+        { key: 'callId', label: 'Call id', required: false },
+        { key: 'startTimeCol', label: 'Start Time', required: false },
+        { key: 'endTimeCol', label: 'End Time', required: false },
+        { key: 'chain', label: 'Chain', required: false },
+        { key: 'fromType', label: 'From Type', required: false },
+        { key: 'finalType', label: 'Final Type', required: false },
+        { key: 'fromDispname', label: 'From Dispname', required: false },
+        { key: 'toDispname', label: 'To Dispname', required: false },
+        { key: 'finalDispname', label: 'Final Dispname', required: false },
+        { key: 'missedQueueCalls', label: 'Missed Queue Calls', required: false },
+        { key: 'rawStream', label: 'Raw Stream', required: false }
       ]
     }
   }
@@ -93,6 +119,122 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   useEffect(() => {
     setVisibleColumns(getDefaultColumns())
   }, [callType])
+
+  // Local filter draft state for the Filters panel
+  const [localFilters, setLocalFilters] = useState({
+    dateFrom: filters.dateFrom || '',
+    dateTo: filters.dateTo || '',
+    callType: (filters.callType as any) || '',
+    status: (filters.status as any) || '',
+    areaCode: filters.areaCode || '',
+    trunkNumber: filters.trunkNumber || '',
+    terminationReason: filters.terminationReason || '',
+    extension: (filters as any).extension || '',
+    stateCode: (filters as any).stateCode || '',
+    minDurationSec: (filters as any).minDurationSec || '',
+    maxDurationSec: (filters as any).maxDurationSec || '',
+    minCost: (filters as any).minCost || '',
+    maxCost: (filters as any).maxCost || ''
+  })
+
+  // Sync local draft when opening panel or when global filters change
+  useEffect(() => {
+    if (!showFilters) return
+    setLocalFilters({
+      dateFrom: filters.dateFrom || '',
+      dateTo: filters.dateTo || '',
+      callType: (filters.callType as any) || '',
+      status: (filters.status as any) || '',
+      areaCode: filters.areaCode || '',
+      trunkNumber: filters.trunkNumber || '',
+      terminationReason: filters.terminationReason || '',
+      extension: (filters as any).extension || '',
+      stateCode: (filters as any).stateCode || '',
+      minDurationSec: (filters as any).minDurationSec || '',
+      maxDurationSec: (filters as any).maxDurationSec || '',
+      minCost: (filters as any).minCost || '',
+      maxCost: (filters as any).maxCost || ''
+    })
+  }, [showFilters, filters])
+
+  // Quick date presets for fast filtering
+  const [quickRange, setQuickRange] = useState<string>('')
+
+  const toLocalInput = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0)
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59)
+
+  const applyQuick = (range: string) => {
+    const now = new Date()
+    let from = startOfDay(now)
+    let to = endOfDay(now)
+
+    switch (range) {
+      case 'today':
+        break
+      case 'yesterday': {
+        const y = new Date(now)
+        y.setDate(y.getDate() - 1)
+        from = startOfDay(y)
+        to = endOfDay(y)
+        break
+      }
+      case 'thisMonth':
+        from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0)
+        to = endOfDay(now)
+        break
+      case 'lastMonth':
+        from = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0)
+        to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59)
+        break
+      case 'last3months':
+        from = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0)
+        to = endOfDay(now)
+        break
+      case 'thisYear':
+        from = new Date(now.getFullYear(), 0, 1, 0, 0)
+        to = endOfDay(now)
+        break
+      default:
+        return
+    }
+
+    setQuickRange(range)
+    setLocalFilters(prev => ({
+      ...prev,
+      dateFrom: toLocalInput(from),
+      dateTo: toLocalInput(to)
+    }))
+  }
+
+  // Close Columns popover with Escape key anywhere on the page
+  useEffect(() => {
+    if (!showColumnSelector) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowColumnSelector(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showColumnSelector])
+
+  // Close Filters popover with Escape key anywhere on the page
+  useEffect(() => {
+    if (!showFilters) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowFilters(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showFilters])
   
   // 🪄 MAGIC: Instant pagination system
   const [pageCache, setPageCache] = useState<Map<string, { data: CallLog[], pagination: any, timestamp: number }>>(new Map())
@@ -150,9 +292,14 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         areaCode: urlAreaCode || filters.areaCode,
-        extension: urlExtension || undefined,
+        extension: urlExtension || (filters as any).extension,
         trunkNumber: filters.trunkNumber,
-        terminationReason: filters.terminationReason
+        terminationReason: filters.terminationReason,
+        stateCode: (filters as any).stateCode,
+        minDurationSec: (filters as any).minDurationSec,
+        maxDurationSec: (filters as any).maxDurationSec,
+        minCost: (filters as any).minCost,
+        maxCost: (filters as any).maxCost
       }
 
       const response: ApiResponse<CallLog[]> = await dataService.getCallLogs(params)
@@ -419,10 +566,21 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
               </button>
               
               {showColumnSelector && (
-                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                <div
+                  className="absolute right-0 mt-2 w-72 sm:w-80 bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-[80vh] overflow-hidden"
+                  role="dialog"
+                  aria-modal="true"
+                  tabIndex={-1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') {
+                      e.stopPropagation();
+                      setShowColumnSelector(false);
+                    }
+                  }}
+                >
                   <div className="p-4">
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Select Columns to View</h3>
-                    <div className="space-y-2">
+                    <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                       {availableColumns.map((column) => (
                         <label key={column.key} className="flex items-center">
                           <input
@@ -462,17 +620,234 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
               <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
               Export
             </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
-                showFilters
-                  ? 'border-indigo-500 text-indigo-700 bg-indigo-50 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-400'
-                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
-              }`}
-            >
-              <FunnelIcon className="h-4 w-4 mr-2" />
-              Filters
-            </button>
+            <div className="relative">
+              <div className="relative">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                    showFilters
+                      ? 'border-indigo-500 text-indigo-700 bg-indigo-50 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-400'
+                      : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  <FunnelIcon className="h-4 w-4 mr-2" />
+                  Filters
+                </button>
+                {showFilters && (
+                  <div
+                    className="absolute right-0 mt-2 w-[32rem] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-[80vh] overflow-auto p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    tabIndex={-1}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.stopPropagation()
+                        setShowFilters(false)
+                      }
+                    }}
+                  >
+                    <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Power Filters</h3>
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {[
+                        {k:'today',l:'Today'},
+                        {k:'yesterday',l:'Yesterday'},
+                        {k:'thisMonth',l:'This Month'},
+                        {k:'lastMonth',l:'Last Month'},
+                        {k:'last3months',l:'Last 3 months'},
+                        {k:'thisYear',l:'This year'}
+                      ].map(({k,l}) => (
+                        <button
+                          key={k}
+                          onClick={() => applyQuick(k)}
+                          className={`px-2.5 py-1 text-xs rounded border ${quickRange===k ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                        >
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Date From</label>
+                        <input
+                          type="datetime-local"
+                          value={localFilters.dateFrom}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Date To</label>
+                        <input
+                          type="datetime-local"
+                          value={localFilters.dateTo}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Call Type</label>
+                        <select
+                          value={localFilters.callType}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, callType: e.target.value as any }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        >
+                          <option value="">All</option>
+                          <option value="incoming">Incoming</option>
+                          <option value="outgoing">Outgoing</option>
+                          <option value="internal">Internal</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Status</label>
+                        <select
+                          value={localFilters.status}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, status: e.target.value as any }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        >
+                          <option value="">All</option>
+                          <option value="answered">Answered</option>
+                          <option value="unanswered">Unanswered</option>
+                          <option value="redirected">Redirected</option>
+                          <option value="waiting">Waiting</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Area Code</label>
+                        <input
+                          type="text"
+                          value={localFilters.areaCode}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, areaCode: e.target.value }))}
+                          placeholder="e.g. 323"
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Trunk Number</label>
+                        <input
+                          type="text"
+                          value={localFilters.trunkNumber}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, trunkNumber: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Extension</label>
+                        <input
+                          type="text"
+                          value={localFilters.extension as any}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, extension: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">State Code</label>
+                        <input
+                          type="text"
+                          value={localFilters.stateCode as any}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, stateCode: e.target.value }))}
+                          placeholder="e.g. 32"
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Min Duration (sec)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={localFilters.minDurationSec as any}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, minDurationSec: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max Duration (sec)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={localFilters.maxDurationSec as any}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, maxDurationSec: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Min Cost</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={localFilters.minCost as any}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, minCost: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max Cost</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={localFilters.maxCost as any}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, maxCost: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Termination Reason</label>
+                        <input
+                          type="text"
+                          value={localFilters.terminationReason}
+                          onChange={(e) => setLocalFilters(prev => ({ ...prev, terminationReason: e.target.value }))}
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 flex justify-between">
+                      <button
+                        onClick={() => {
+                          setLocalFilters({ dateFrom: '', dateTo: '', callType: '', status: '', areaCode: '', trunkNumber: '', terminationReason: '', extension: '', stateCode: '', minDurationSec: '', maxDurationSec: '', minCost: '', maxCost: '' })
+                          setFilters({ dateFrom: undefined, dateTo: undefined, callType: undefined, status: undefined, areaCode: undefined, trunkNumber: undefined, terminationReason: undefined, extension: undefined, stateCode: undefined, minDurationSec: undefined, maxDurationSec: undefined, minCost: undefined, maxCost: undefined })
+                          setShowFilters(false)
+                        }}
+                        className="px-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        Clear All
+                      </button>
+                      <div className="space-x-2">
+                        <button
+                          onClick={() => setShowFilters(false)}
+                          className="px-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            setFilters({
+                              dateFrom: localFilters.dateFrom || undefined,
+                              dateTo: localFilters.dateTo || undefined,
+                              callType: (localFilters.callType as any) || undefined,
+                              status: (localFilters.status as any) || undefined,
+                              areaCode: localFilters.areaCode || undefined,
+                              trunkNumber: localFilters.trunkNumber || undefined,
+                              terminationReason: localFilters.terminationReason || undefined,
+                              extension: (localFilters.extension as any) || undefined,
+                              stateCode: (localFilters.stateCode as any) || undefined,
+                              minDurationSec: localFilters.minDurationSec ? Number(localFilters.minDurationSec) : undefined,
+                              maxDurationSec: localFilters.maxDurationSec ? Number(localFilters.maxDurationSec) : undefined,
+                              minCost: localFilters.minCost ? Number(localFilters.minCost) : undefined,
+                              maxCost: localFilters.maxCost ? Number(localFilters.maxCost) : undefined
+                            })
+                            setShowFilters(false)
+                          }}
+                          className="px-3 py-1.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         }
         searchValue={searchTerm}
@@ -605,11 +980,71 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                           Reason
                         </th>
                       )}
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {callLogs.map((call, index) => (
-                      <tr key={`${call.historyId}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      {visibleColumns.includes('historyId') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          History id
+                        </th>
+                      )}
+                      {visibleColumns.includes('callId') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Call id
+                        </th>
+                      )}
+                      {visibleColumns.includes('startTimeCol') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Start Time
+                        </th>
+                      )}
+                      {visibleColumns.includes('endTimeCol') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          End Time
+                        </th>
+                      )}
+                      {visibleColumns.includes('chain') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Chain
+                        </th>
+                      )}
+                      {visibleColumns.includes('fromType') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          From Type
+                        </th>
+                      )}
+                      {visibleColumns.includes('finalType') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Final Type
+                        </th>
+                      )}
+                      {visibleColumns.includes('fromDispname') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          From Dispname
+                        </th>
+                      )}
+                      {visibleColumns.includes('toDispname') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          To Dispname
+                        </th>
+                      )}
+                      {visibleColumns.includes('finalDispname') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Final Dispname
+                        </th>
+                      )}
+                      {visibleColumns.includes('missedQueueCalls') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Missed Queue Calls
+                        </th>
+                      )}
+                      {visibleColumns.includes('rawStream') && (
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                          Raw Stream
+                        </th>
+                      )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {callLogs.map((call, index) => (
+                    <tr key={`${call.historyId}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         {/* TYPE */}
                         {visibleColumns.includes('type') && (
                           <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
@@ -685,6 +1120,88 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                           <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                             <span className="truncate max-w-24 block" title={call.terminationReason}>
                               {call.terminationReason}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('historyId') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.historyId || '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('callId') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.callId || '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('startTimeCol') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.startTime ? format(new Date(call.startTime), 'yyyy-MM-dd HH:mm:ss') : '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('endTimeCol') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.endTime ? format(new Date(call.endTime), 'yyyy-MM-dd HH:mm:ss') : '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('chain') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            <span className="truncate max-w-40 block" title={String(call.chain ?? '')}>
+                              {call.chain ?? '-'}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('fromType') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.fromType || '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('finalType') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.finalType || '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('fromDispname') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            <span className="truncate max-w-40 block" title={call.fromDispname || ''}>
+                              {call.fromDispname || '-'}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('toDispname') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            <span className="truncate max-w-40 block" title={call.toDispname || ''}>
+                              {call.toDispname || '-'}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('finalDispname') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            <span className="truncate max-w-40 block" title={call.finalDispname || ''}>
+                              {call.finalDispname || '-'}
+                            </span>
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('missedQueueCalls') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
+                            {call.missedQueueCalls ?? '-'}
+                          </td>
+                        )}
+                        
+                        {visibleColumns.includes('rawStream') && (
+                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
+                            <span className="truncate max-w-64 block" title={call.rawStream || ''}>
+                              {call.rawStream ? String(call.rawStream).slice(0, 60) + (String(call.rawStream).length > 60 ? '…' : '') : '-'}
                             </span>
                           </td>
                         )}

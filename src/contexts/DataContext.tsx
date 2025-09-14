@@ -11,6 +11,12 @@ interface DataFilters {
   terminationReason?: string
   areaCode?: string
   trunkNumber?: string
+  extension?: string
+  stateCode?: string
+  minDurationSec?: number
+  maxDurationSec?: number
+  minCost?: number
+  maxCost?: number
   search?: string
 }
 

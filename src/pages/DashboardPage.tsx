@@ -128,11 +128,65 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Filters UI state
+  const [showFilters, setShowFilters] = useState(false)
+  const [dashFilters, setDashFilters] = useState<{
+    dateFrom?: string
+    dateTo?: string
+    callType?: string
+    extension?: string
+    areaCode?: string
+    minDurationSec?: number
+    maxDurationSec?: number
+    minCost?: number
+    maxCost?: number
+  }>({})
+  const [localFilters, setLocalFilters] = useState<{
+    dateFrom?: string
+    dateTo?: string
+    callType?: string
+    extension?: string
+    areaCode?: string
+    minDurationSec?: string | number
+    maxDurationSec?: string | number
+    minCost?: string | number
+    maxCost?: string | number
+  }>({})
+
+  // Sync local filter editor when opening the panel
+  useEffect(() => {
+    if (!showFilters) return
+    setLocalFilters({
+      dateFrom: dashFilters.dateFrom || '',
+      dateTo: dashFilters.dateTo || '',
+      callType: dashFilters.callType || '',
+      extension: dashFilters.extension || '',
+      areaCode: dashFilters.areaCode || '',
+      minDurationSec: typeof dashFilters.minDurationSec === 'number' ? dashFilters.minDurationSec : '',
+      maxDurationSec: typeof dashFilters.maxDurationSec === 'number' ? dashFilters.maxDurationSec : '',
+      minCost: typeof dashFilters.minCost === 'number' ? dashFilters.minCost : '',
+      maxCost: typeof dashFilters.maxCost === 'number' ? dashFilters.maxCost : ''
+    })
+  }, [showFilters, dashFilters])
+
+  // Close dashboard filters popover with Escape
+  useEffect(() => {
+    if (!showFilters) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowFilters(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [showFilters])
+
   // Initial data fetch
   useEffect(() => {
     if (!selectedDataSource) return
     fetchDashboardData()
-  }, [selectedDataSource])
+  }, [selectedDataSource, dashFilters])
 
 
   const displayData = data;
@@ -149,9 +203,21 @@ export default function DashboardPage() {
         throw new Error('No authentication token found')
       }
 
+      // Build query params from active filters
+      const params: any = { collection: selectedDataSource }
+      if (dashFilters.dateFrom) params.dateFrom = dashFilters.dateFrom
+      if (dashFilters.dateTo) params.dateTo = dashFilters.dateTo
+      if (dashFilters.callType) params.callType = dashFilters.callType
+      if (dashFilters.extension) params.extension = dashFilters.extension
+      if (dashFilters.areaCode) params.areaCode = dashFilters.areaCode
+      if (typeof dashFilters.minDurationSec === 'number') params.minDurationSec = dashFilters.minDurationSec
+      if (typeof dashFilters.maxDurationSec === 'number') params.maxDurationSec = dashFilters.maxDurationSec
+      if (typeof dashFilters.minCost === 'number') params.minCost = dashFilters.minCost
+      if (typeof dashFilters.maxCost === 'number') params.maxCost = dashFilters.maxCost
+
       // Use the new powerful aggregation endpoint
       const response = await axios.get(`${API_BASE_URL}/dashboard/stats`, {
-        params: { collection: selectedDataSource },
+        params,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -228,6 +294,72 @@ export default function DashboardPage() {
     return digits.slice(0, 3)
   }
 
+  // Helpers for quick date presets (match Call Logs behavior)
+  const toLocalInput = (d: Date) => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const yyyy = d.getFullYear()
+    const mm = pad(d.getMonth() + 1)
+    const dd = pad(d.getDate())
+    const hh = pad(d.getHours())
+    const mi = pad(d.getMinutes())
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`
+  }
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0)
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59)
+
+  const applyQuick = (range: 'today' | 'yesterday' | 'thisMonth' | 'lastMonth' | 'last3months' | 'thisYear') => {
+    const now = new Date()
+    let from: Date
+    let to: Date
+
+    switch (range) {
+      case 'today': {
+        from = startOfDay(now)
+        to = endOfDay(now)
+        break
+      }
+      case 'yesterday': {
+        const y = new Date(now)
+        y.setDate(y.getDate() - 1)
+        from = startOfDay(y)
+        to = endOfDay(y)
+        break
+      }
+      case 'thisMonth': {
+        from = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0)
+        to = endOfDay(now)
+        break
+      }
+      case 'lastMonth': {
+        from = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0)
+        // Day 0 of current month = last day of previous month
+        to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59)
+        break
+      }
+      case 'last3months': {
+        // From start of the month two months ago (covers current + last two months)
+        from = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0)
+        to = endOfDay(now)
+        break
+      }
+      case 'thisYear': {
+        from = new Date(now.getFullYear(), 0, 1, 0, 0)
+        to = endOfDay(now)
+        break
+      }
+      default: {
+        from = startOfDay(now)
+        to = endOfDay(now)
+      }
+    }
+
+    setLocalFilters(prev => ({
+      ...prev,
+      dateFrom: toLocalInput(from),
+      dateTo: toLocalInput(to)
+    }))
+  }
   // Compute states distribution and total unique codes from area codes
   const computeStatesData = () => {
     if (!displayData?.areaCodeDistribution) return { statesArray: [] as any[], totalUniqueCodes: 0 }
@@ -491,6 +623,216 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center px-4 py-2 border shadow-sm text-sm leading-4 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                showFilters
+                  ? 'border-indigo-500 text-indigo-700 bg-indigo-50 dark:bg-indigo-900 dark:text-indigo-200 dark:border-indigo-400'
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600'
+              }`}
+            >
+              Filters
+            </button>
+            {showFilters && (
+              <div
+                className="absolute right-0 mt-2 w-[28rem] bg-white dark:bg-gray-800 rounded-md shadow-lg border border-gray-200 dark:border-gray-700 z-50 max-h-[80vh] overflow-auto p-4"
+                role="dialog"
+                aria-modal="true"
+                tabIndex={-1}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.stopPropagation()
+                    setShowFilters(false)
+                  }
+                }}
+              >
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Dashboard Filters</h3>
+
+                {/* Quick date presets */}
+                <div className="mb-3">
+                  <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Quick date presets</div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyQuick('today')}
+                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      Today
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyQuick('yesterday')}
+                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      Yesterday
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyQuick('thisMonth')}
+                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      This Month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyQuick('lastMonth')}
+                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      Last Month
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyQuick('last3months')}
+                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      Last 3 months
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyQuick('thisYear')}
+                      className="px-2.5 py-1 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+                    >
+                      This year
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Date From</label>
+                    <input
+                      type="datetime-local"
+                      value={localFilters.dateFrom as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Date To</label>
+                    <input
+                      type="datetime-local"
+                      value={localFilters.dateTo as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Call Type</label>
+                    <select
+                      value={localFilters.callType || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, callType: e.target.value || undefined }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    >
+                      <option value="">All</option>
+                      <option value="incoming">Incoming</option>
+                      <option value="outgoing">Outgoing</option>
+                      <option value="internal">Internal</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Extension</label>
+                    <input
+                      type="text"
+                      value={localFilters.extension as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, extension: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Area Code</label>
+                    <input
+                      type="text"
+                      value={localFilters.areaCode as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, areaCode: e.target.value }))}
+                      placeholder="e.g. 323"
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Min Duration (sec)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={localFilters.minDurationSec as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, minDurationSec: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max Duration (sec)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={localFilters.maxDurationSec as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, maxDurationSec: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Min Cost</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={localFilters.minCost as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, minCost: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max Cost</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={localFilters.maxCost as any || ''}
+                      onChange={(e) => setLocalFilters(prev => ({ ...prev, maxCost: e.target.value }))}
+                      className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm px-2 py-1"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex justify-between">
+                  <button
+                    onClick={() => {
+                      setDashFilters({})
+                      setShowFilters(false)
+                    }}
+                    className="px-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Clear All
+                  </button>
+                  <div className="space-x-2">
+                    <button
+                      onClick={() => setShowFilters(false)}
+                      className="px-3 py-1.5 text-xs rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDashFilters({
+                          dateFrom: localFilters.dateFrom || undefined,
+                          dateTo: localFilters.dateTo || undefined,
+                          callType: localFilters.callType || undefined,
+                          extension: localFilters.extension || undefined,
+                          areaCode: localFilters.areaCode || undefined,
+                          minDurationSec: localFilters.minDurationSec ? Number(localFilters.minDurationSec) : undefined,
+                          maxDurationSec: localFilters.maxDurationSec ? Number(localFilters.maxDurationSec) : undefined,
+                          minCost: localFilters.minCost ? Number(localFilters.minCost) : undefined,
+                          maxCost: localFilters.maxCost ? Number(localFilters.maxCost) : undefined
+                        })
+                        setShowFilters(false)
+                      }}
+                      className="px-3 py-1.5 text-xs rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
           <button
             onClick={handleRefresh}
             disabled={isLoading}

@@ -4,6 +4,7 @@ import axios from 'axios'
 interface CallLog {
   _id: string
   historyId: string
+  callId?: string
   startTime: string
   endTime?: string
   duration?: string
@@ -18,6 +19,15 @@ interface CallLog {
   stateCode?: string
   extension?: string
   status: 'answered' | 'unanswered' | 'redirected' | 'waiting'
+  // Additional optional fields for extended column selection
+  chain?: string
+  fromType?: string
+  finalType?: string
+  fromDispname?: string
+  toDispname?: string
+  finalDispname?: string
+  missedQueueCalls?: number | string
+  rawStream?: string
 }
 
 interface AreaCode {
@@ -127,6 +137,11 @@ export const dataService = {
     areaCode?: string
     extension?: string
     trunkNumber?: string
+    stateCode?: string
+    minDurationSec?: number
+    maxDurationSec?: number
+    minCost?: number
+    maxCost?: number
     collection?: string
   }): Promise<ApiResponse<CallLog[]>> {
     try {
@@ -154,7 +169,13 @@ export const dataService = {
     status?: string
     terminationReason?: string
     areaCode?: string
+    extension?: string
     trunkNumber?: string
+    stateCode?: string
+    minDurationSec?: number
+    maxDurationSec?: number
+    minCost?: number
+    maxCost?: number
     collection?: string
   }): Promise<Blob> {
     try {
