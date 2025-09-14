@@ -33,6 +33,7 @@ interface CreateUserModalProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (userData: CreateUserData) => void
+  loading?: boolean
 }
 
 const roles = [
@@ -42,7 +43,7 @@ const roles = [
   { value: 'viewer', label: 'Viewer', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200' }
 ]
 
-function CreateUserModal({ isOpen, onClose, onSubmit }: CreateUserModalProps) {
+function CreateUserModal({ isOpen, onClose, onSubmit, loading = false }: CreateUserModalProps) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -320,9 +321,10 @@ function CreateUserModal({ isOpen, onClose, onSubmit }: CreateUserModalProps) {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg"
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-white rounded-md bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-lg disabled:opacity-50"
               >
-                Create User
+                {loading ? 'Creating...' : 'Create User'}
               </button>
             </div>
           </form>
@@ -643,6 +645,7 @@ export default function UsersPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [updateLoading, setUpdateLoading] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
 
   const namesMap = getDataSourceNames()
   const databaseOptions = getDataSourceOptions()
@@ -1153,6 +1156,7 @@ export default function UsersPage() {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateUser}
+        loading={createLoading}
       />
     </div>
   )
