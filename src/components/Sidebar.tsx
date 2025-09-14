@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
@@ -43,6 +43,28 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
   const { selectedDataSource, setDataSource } = useData()
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  // Collapsed (icon-only) desktop dropdown needs to render outside the sidebar to avoid clipping
+  const desktopButtonRef = useRef<HTMLButtonElement | null>(null)
+  const fixedDropdownRef = useRef<HTMLDivElement | null>(null)
+  const [collapsedDropdownPos, setCollapsedDropdownPos] = useState<{ top: number; left: number } | null>(null)
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (
+        fixedDropdownRef.current &&
+        !fixedDropdownRef.current.contains(t) &&
+        desktopButtonRef.current &&
+        !desktopButtonRef.current.contains(t)
+      ) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [dropdownOpen])
 
   // All configured data sources
   const dataSourceOptions = getDataSourceOptions()
@@ -225,9 +247,20 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
           {/* Data Source Dropdown - Desktop */}
           <div className="relative">
             <button
+              ref={desktopButtonRef}
               type="button"
               className={`relative w-full cursor-pointer rounded-md ${canSelectDataSource ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'} py-2 text-left shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none ${canSelectDataSource ? 'focus:ring-2 focus:ring-indigo-500' : ''} sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
-              onClick={() => { if (canSelectDataSource) setDropdownOpen(!dropdownOpen) }}
+              onClick={() => {
+                if (!canSelectDataSource) return
+                if (!dropdownOpen && isCollapsed && desktopButtonRef.current) {
+                  const rect = desktopButtonRef.current.getBoundingClientRect()
+                  setCollapsedDropdownPos({
+                    top: rect.top + window.scrollY,
+                    left: rect.right + 8 + window.scrollX
+                  })
+                }
+                setDropdownOpen(!dropdownOpen)
+              }}
               disabled={!canSelectDataSource}
               title={canSelectDataSource ? 'Select data source' : 'Ask developer to activate you'}
             >
@@ -246,31 +279,63 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
             </button>
 
             {dropdownOpen && canSelectDataSource && (
-              <div className={`absolute z-50 mt-1 max-h-60 ${isCollapsed ? 'left-full ml-2 w-56 origin-left' : 'w-full'} overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm`}>
-                {allowedOptions.map((option) => (
-                  <div
-                    key={option.value}
-                    className={`relative cursor-pointer select-none py-2 pl-3 pr-9 ${
-                      option.value === selectedDataSource
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                    onClick={() => {
-                      setDataSource(option.value)
-                      setDropdownOpen(false)
-                    }}
-                  >
-                    <span className="block truncate">{option.label}</span>
-                    {option.value === selectedDataSource && (
-                      <span className="absolute inset-y-0 right-0 flex items-center pr-4">
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+              isCollapsed ? (
+                <div
+                  ref={fixedDropdownRef}
+                  className="fixed z-[9999] max-h-60 w-60 overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm"
+                  style={{ top: (collapsedDropdownPos?.top ?? 64), left: (collapsedDropdownPos?.left ?? 88) }}
+                >
+                  {allowedOptions.map((option) => (
+                    <div
+                      key={option.value}
+                      className={`relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                        option.value === selectedDataSource
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                      onClick={() => {
+                        setDataSource(option.value)
+                        setDropdownOpen(false)
+                      }}
+                    >
+                      <span className="block truncate">{option.label}</span>
+                      {option.value === selectedDataSource && (
+                        <span className="absolute inset-y-0 right-0 flex items-center pr-4">
+                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                  {allowedOptions.map((option) => (
+                    <div
+                      key={option.value}
+                      className={`relative cursor-pointer select-none py-2 pl-3 pr-9 ${
+                        option.value === selectedDataSource
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                      onClick={() => {
+                        setDataSource(option.value)
+                        setDropdownOpen(false)
+                      }}
+                    >
+                      <span className="block truncate">{option.label}</span>
+                      {option.value === selectedDataSource && (
+                        <span className="absolute inset-y-0 right-0 flex items-center pr-4">
+                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
           <nav className="flex flex-1 flex-col">

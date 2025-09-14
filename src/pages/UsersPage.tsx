@@ -19,7 +19,6 @@ import {
 } from '@fortawesome/free-solid-svg-icons'
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline'
 import DynamicHeader from '../components/DynamicHeader'
-import { useAuth } from '../contexts/AuthContext'
 import { userService } from '../services/userService'
 import type { User, UserStats, CreateUserData, UpdateUserData } from '../services/userService'
 import { getDataSourceOptions, getDataSourceNames } from '../services/settingsService'
@@ -110,14 +109,6 @@ function CreateUserModal({ isOpen, onClose, onSubmit }: CreateUserModalProps) {
     onClose()
   }
 
-  const toggleDatabasePermission = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      databasePermissions: prev.databasePermissions.includes(value)
-        ? prev.databasePermissions.filter(p => p !== value)
-        : [...prev.databasePermissions, value]
-    }))
-  }
 
   if (!isOpen) return null
 
@@ -392,16 +383,6 @@ function EditUserModal({ isOpen, user, onClose, onSubmit, loading = false }: Edi
 
   if (!isOpen || !user) return null
 
-  const toggleDatabasePermission = (value: string) => {
-    setFormData(prev => {
-      const current = prev.databasePermissions || []
-      const next = current.includes(value)
-        ? current.filter(v => v !== value)
-        : [...current, value]
-      return { ...prev, databasePermissions: next }
-    })
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit(user._id, formData)
@@ -630,7 +611,6 @@ function EditUserModal({ isOpen, user, onClose, onSubmit, loading = false }: Edi
 
 export default function UsersPage() {
   const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<OutletContext>()
-  const { user: _currentUser } = useAuth()
 
   const [users, setUsers] = useState<User[]>([])
   const [userStats, setUserStats] = useState<UserStats | null>(null)
@@ -638,7 +618,16 @@ export default function UsersPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [searchTerm, setSearchTerm] = useState('')
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup any pending debounced search timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const [selectedRole, setSelectedRole] = useState<string>('')
   const [sortBy, setSortBy] = useState<string>('createdAt')
