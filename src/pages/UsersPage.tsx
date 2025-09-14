@@ -639,7 +639,7 @@ export default function UsersPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10)
 
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createLoading, setCreateLoading] = useState(false)
+  
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   const [updateLoading, setUpdateLoading] = useState(false)
