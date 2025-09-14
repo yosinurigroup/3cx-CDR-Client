@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { DataProvider } from './contexts/DataContext'
-import { RealtimeProvider } from './contexts/RealtimeContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
@@ -19,8 +18,7 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <RealtimeProvider>
-          <DataProvider>
+        <DataProvider>
             <div className="min-h-screen bg-background">
             <Routes>
               {/* Public routes */}
@@ -68,9 +66,8 @@ function App() {
             <Toaster />
             </div>
           </DataProvider>
-        </RealtimeProvider>
-      </AuthProvider>
-    </ThemeProvider>
+        </AuthProvider>
+      </ThemeProvider>
   )
 }
 

@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import { useData } from '../contexts/DataContext'
-import { useRealtime } from '../contexts/RealtimeContext'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { 
@@ -125,48 +124,17 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { onMenuClick, isSidebarCollapsed, onToggleSidebar } = useOutletContext<any>();
   const { selectedDataSource } = useData()
-  const { 
-    isConnected, 
-    dashboardData: realtimeData, 
-    lastUpdate, 
-    connectionStatus, 
-    connect, 
-    disconnect, 
-    refreshData 
-  } = useRealtime()
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [enableRealtime, setEnableRealtime] = useState(true)
 
-  // Initial data fetch and real-time connection setup
+  // Initial data fetch
   useEffect(() => {
     fetchDashboardData()
-    
-    // Connect to real-time updates if enabled
-    if (enableRealtime && selectedDataSource) {
-      connect(selectedDataSource)
-    }
-    
-    return () => {
-      if (isConnected) {
-        disconnect()
-      }
-    }
-  }, [selectedDataSource, enableRealtime])
+  }, [selectedDataSource])
 
-  // Use real-time data when available, fallback to fetched data
-  useEffect(() => {
-    if (realtimeData && enableRealtime) {
-      console.log('📊 Real-time data received, updating dashboard:', realtimeData);
-      setData(realtimeData)
-      setIsLoading(false)
-      setError(null)
-    }
-  }, [realtimeData, enableRealtime])
 
-  // Force re-render when real-time data changes
-  const displayData = enableRealtime && realtimeData ? realtimeData : data;
+  const displayData = data;
 
   const fetchDashboardData = async () => {
     try {
@@ -232,21 +200,9 @@ export default function DashboardPage() {
   const pluralize = (n: number, singular: string, plural: string) => `${n} ${n === 1 ? singular : plural}`
 
   const handleRefresh = () => {
-    if (enableRealtime && isConnected) {
-      refreshData()
-    } else {
-      fetchDashboardData()
-    }
+    fetchDashboardData()
   }
 
-  const toggleRealtime = () => {
-    setEnableRealtime(!enableRealtime)
-    if (!enableRealtime && selectedDataSource) {
-      connect(selectedDataSource)
-    } else if (enableRealtime) {
-      disconnect()
-    }
-  }
 
   // Handle area code click to navigate to filtered call logs
   const handleAreaCodeClick = (areaCode: string) => {
@@ -533,58 +489,6 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {/* Real-time Connection Status */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border">
-            {connectionStatus === 'connected' && (
-              <>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-green-700 dark:text-green-400">Live</span>
-              </>
-            )}
-            {connectionStatus === 'connecting' && (
-              <>
-                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                <span className="text-yellow-700 dark:text-yellow-400">Connecting</span>
-              </>
-            )}
-            {connectionStatus === 'disconnected' && (
-              <>
-                <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                <span className="text-gray-600 dark:text-gray-400">Offline</span>
-              </>
-            )}
-            {connectionStatus === 'error' && (
-              <>
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="text-red-700 dark:text-red-400">Error</span>
-              </>
-            )}
-          </div>
-
-          {/* Last Update Time */}
-          {lastUpdate && enableRealtime && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">
-              Updated: {new Date(lastUpdate).toLocaleTimeString()}
-            </div>
-          )}
-
-          {/* Real-time Toggle */}
-          <button
-            onClick={toggleRealtime}
-            className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              enableRealtime
-                ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
-            }`}
-          >
-            <FontAwesomeIcon 
-              icon={enableRealtime ? faArrowUp : faArrowDown} 
-              className="h-3 w-3 mr-1.5" 
-            />
-            {enableRealtime ? 'Live' : 'Manual'}
-          </button>
-
-          {/* Refresh Button */}
           <button
             onClick={handleRefresh}
             disabled={isLoading}

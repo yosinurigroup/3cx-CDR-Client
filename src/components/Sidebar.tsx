@@ -1,9 +1,10 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useData } from '../contexts/DataContext'
 import { useTheme } from '../contexts/ThemeContext'
+import { getDataSourceOptions } from '../services/settingsService'
 import { ChevronDownIcon } from '@heroicons/react/20/solid'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -38,17 +39,31 @@ const navigation = [
 
 export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
   const location = useLocation()
-  const { hasPermission, user, logout } = useAuth()
+  const { hasPermission, hasRole, user, logout } = useAuth()
   const { selectedDataSource, setDataSource } = useData()
   const { theme, setTheme } = useTheme()
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
-  const dataSourceOptions = [
-    { value: 'cdrs_143.198.0.104', label: 'Option 1 (143.198.0.104)' },
-    { value: 'cdrs_167.71.120.52', label: 'Option 2 (167.71.120.52)' }
-  ]
+  // All configured data sources
+  const dataSourceOptions = getDataSourceOptions()
+  // Limit by user database permissions (if any)
+  const allowedValues = user?.databasePermissions || []
+  const allowedOptions = (allowedValues.length > 0)
+    ? dataSourceOptions.filter(opt => allowedValues.includes(opt.value))
+    : []
 
-  const currentOption = dataSourceOptions.find(option => option.value === selectedDataSource)
+  const canSelectDataSource = allowedOptions.length > 0
+
+  // If current selection is not permitted, auto-select first permitted when available
+  useEffect(() => {
+    if (!canSelectDataSource) return
+    const isCurrentAllowed = allowedOptions.some(opt => opt.value === selectedDataSource)
+    if (!isCurrentAllowed) {
+      setDataSource(allowedOptions[0].value)
+    }
+  }, [canSelectDataSource, allowedOptions, selectedDataSource, setDataSource])
+
+  const currentOption = allowedOptions.find(option => option.value === selectedDataSource)
 
   const isActive = (href: string) => {
     return location.pathname === href || location.pathname.startsWith(href + '/')
@@ -56,6 +71,9 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
 
   const filteredNavigation = navigation.filter(item => {
     if (item.name === 'Users' && !hasPermission('manageUsers')) {
+      return false
+    }
+    if (item.name === 'Settings' && !(hasRole('admin') || hasPermission('systemSettings'))) {
       return false
     }
     return true
@@ -98,18 +116,22 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
                   <div className="relative">
                     <button
                       type="button"
-                      className={`relative w-full cursor-pointer rounded-md bg-white dark:bg-gray-800 py-2 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
-                      onClick={() => setDropdownOpen(!dropdownOpen)}
+                      className={`relative w-full cursor-pointer rounded-md ${canSelectDataSource ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'} py-2 text-left shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none ${canSelectDataSource ? 'focus:ring-2 focus:ring-indigo-500' : ''} sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
+                      onClick={() => { if (canSelectDataSource) setDropdownOpen(!dropdownOpen) }}
+                      disabled={!canSelectDataSource}
+                      title={canSelectDataSource ? 'Select data source' : 'Ask developer to activate you'}
                     >
-                      <span className="block truncate">{currentOption?.label}</span>
+                      <span className="block truncate">
+                        {canSelectDataSource ? (currentOption?.label || 'Select data source') : 'No access — ask developer to activate you'}
+                      </span>
                       <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                         <ChevronDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                       </span>
                     </button>
 
-                    {dropdownOpen && (
+                    {dropdownOpen && canSelectDataSource && (
                       <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                        {dataSourceOptions.map((option) => (
+                        {allowedOptions.map((option) => (
                           <div
                             key={option.value}
                             className={`relative cursor-pointer select-none py-2 pl-3 pr-9 ${
@@ -171,20 +193,14 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
                       {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
                     </button>
                     
-                    {/* User info */}
+                    {/* Logout only */}
                     <div className="mt-2 p-2 rounded-md bg-gray-50 dark:bg-gray-800">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {user?.fullName || user?.email}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Super Admin
-                      </div>
                       <button
                         onClick={logout}
-                        className="mt-2 flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        className="flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                       >
                         <FontAwesomeIcon icon={faSignOutAlt} className="w-3 h-3" />
-                        Logout
+                        {`Logout (${user?.fullName || user?.email || 'User'})`}
                       </button>
                     </div>
                   </div>
@@ -210,14 +226,18 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
           <div className="relative">
             <button
               type="button"
-              className={`relative w-full cursor-pointer rounded-md bg-white dark:bg-gray-800 py-2 text-left text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
-              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className={`relative w-full cursor-pointer rounded-md ${canSelectDataSource ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 cursor-not-allowed'} py-2 text-left shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-none ${canSelectDataSource ? 'focus:ring-2 focus:ring-indigo-500' : ''} sm:text-sm sm:leading-6 ${isCollapsed ? 'flex justify-center' : 'pl-3 pr-10'}`}
+              onClick={() => { if (canSelectDataSource) setDropdownOpen(!dropdownOpen) }}
+              disabled={!canSelectDataSource}
+              title={canSelectDataSource ? 'Select data source' : 'Ask developer to activate you'}
             >
               {isCollapsed ? (
                 <FontAwesomeIcon icon={faDatabase} className="h-5 w-5 text-gray-400" />
               ) : (
                 <>
-                  <span className="block truncate">{currentOption?.label}</span>
+                  <span className="block truncate">
+                    {canSelectDataSource ? (currentOption?.label || 'Select data source') : 'No access — ask developer to activate you'}
+                  </span>
                   <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
                     <ChevronDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
                   </span>
@@ -225,9 +245,9 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
               )}
             </button>
 
-            {dropdownOpen && (
-              <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                {dataSourceOptions.map((option) => (
+            {dropdownOpen && canSelectDataSource && (
+              <div className={`absolute z-50 mt-1 max-h-60 ${isCollapsed ? 'left-full ml-2 w-56 origin-left' : 'w-full'} overflow-auto rounded-md bg-white dark:bg-gray-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm`}>
+                {allowedOptions.map((option) => (
                   <div
                     key={option.value}
                     className={`relative cursor-pointer select-none py-2 pl-3 pr-9 ${
@@ -291,24 +311,30 @@ export default function Sidebar({ open, setOpen, isCollapsed }: SidebarProps) {
               </span>
             </button>
             
-            {/* User info - Hidden when collapsed */}
-            <div className={`${isCollapsed ? 'hidden' : 'block'}`}>
+            {/* Logout (always visible) */}
+            {!isCollapsed && (
               <div className="mt-2 p-2 rounded-md bg-gray-50 dark:bg-gray-800">
-                <div className="text-sm font-medium text-gray-900 dark:text-white">
-                  {user?.fullName || user?.email}
-                </div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Super Admin
-                </div>
                 <button
                   onClick={logout}
-                  className="mt-2 flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                 >
                   <FontAwesomeIcon icon={faSignOutAlt} className="w-3 h-3" />
-                  Logout
+                  {`Logout (${user?.fullName || user?.email || 'User'})`}
                 </button>
               </div>
-            </div>
+            )}
+            {isCollapsed && (
+              <div className="mt-2 flex items-center justify-center">
+                <button
+                  onClick={logout}
+                  className="p-2 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  title={`Logout (${user?.fullName || user?.email || 'User'})`}
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} className="w-5 h-5" />
+                  <span className="sr-only">{`Logout (${user?.fullName || user?.email || 'User'})`}</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

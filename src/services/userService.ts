@@ -154,11 +154,15 @@ apiClient.interceptors.response.use(
 // User service
 export const userService = {
   // Get all users with filtering and pagination
-  async getUsers(params: UserQueryParams = {}): Promise<UsersResponse> {
+  async getUsers(params: UserQueryParams = {}, signal?: AbortSignal): Promise<UsersResponse> {
     try {
-      const response = await apiClient.get<UsersResponse>('/users', { params })
+      const response = await apiClient.get<UsersResponse>('/users', { params, signal })
       return response.data
     } catch (error: any) {
+      // Swallow cancellation errors so callers can ignore aborted requests
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        throw error
+      }
       console.error('Get users error:', error)
       throw error
     }
