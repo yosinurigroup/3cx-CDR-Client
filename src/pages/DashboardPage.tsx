@@ -130,6 +130,7 @@ export default function DashboardPage() {
 
   // Initial data fetch
   useEffect(() => {
+    if (!selectedDataSource) return
     fetchDashboardData()
   }, [selectedDataSource])
 
@@ -137,6 +138,7 @@ export default function DashboardPage() {
   const displayData = data;
 
   const fetchDashboardData = async () => {
+    if (!selectedDataSource) return
     try {
       setIsLoading(true)
       setError(null)

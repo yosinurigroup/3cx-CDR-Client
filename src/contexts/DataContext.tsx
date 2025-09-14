@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react'
+import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
+import { getDataSourceOptions } from '../services/settingsService'
+import { useAuth } from './AuthContext'
 
 // Types
 interface DataFilters {
@@ -74,14 +76,31 @@ interface DataContextType extends DataState {
   isDataStale: boolean
 }
 
-// Initial state
+// Helpers to initialize and persist the data source
+const DS_STORAGE_KEY = 'selectedDataSource'
+
+function getInitialDataSource(): string {
+  // Defer choosing a data source until we know the user's permissions.
+  // DataProvider will set the first allowed option and persist it.
+  return ''
+}
+
+function persistDataSource(value: string) {
+  try {
+    localStorage.setItem(DS_STORAGE_KEY, value)
+  } catch {
+    // ignore
+  }
+}
+
+// Initial state (lazy default for selectedDataSource)
 const initialState: DataState = {
   filters: {},
   isLoading: false,
   isRefreshing: false,
   error: null,
   lastRefresh: null,
-  selectedDataSource: 'cdrs_143.198.0.104',
+  selectedDataSource: getInitialDataSource(),
   viewPreferences: {
     itemsPerPage: 50,
     sortBy: 'startTime',
@@ -130,6 +149,8 @@ function dataReducer(state: DataState, action: DataAction): DataState {
       }
     
     case 'SET_DATA_SOURCE':
+      // Persist immediately so first render of other pages uses correct source
+      persistDataSource(action.payload)
       return {
         ...state,
         selectedDataSource: action.payload
@@ -193,13 +214,34 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'RESET_STATE' })
   }, [])
 
+  // Enforce allowed data source based on authenticated user's permissions
+  const { user } = useAuth()
+  useEffect(() => {
+    if (!user) return
+    const perms = user.databasePermissions || []
+    if (perms.length === 0) return
+
+    // Only keep configured sources that are permitted
+    const configured = getDataSourceOptions().map(o => o.value)
+    const allowed = perms.filter(v => configured.includes(v as any))
+    if (allowed.length === 0) return
+
+    // Prefer stored selection if still allowed; otherwise pick first allowed
+    const stored = localStorage.getItem(DS_STORAGE_KEY) || ''
+    const next = (stored && allowed.includes(stored as any)) ? stored : (allowed[0] as string)
+
+    if (state.selectedDataSource !== next) {
+      dispatch({ type: 'SET_DATA_SOURCE', payload: next })
+    }
+  }, [user, state.selectedDataSource])
+
   // Computed values
   const hasActiveFilters = Object.keys(state.filters).some(key => {
     const value = state.filters[key as keyof DataFilters]
     return value !== undefined && value !== null && value !== ''
   })
 
-  const isDataStale = state.lastRefresh 
+  const isDataStale = state.lastRefresh
     ? (Date.now() - state.lastRefresh.getTime()) > 5 * 60 * 1000 // 5 minutes
     : true
 
