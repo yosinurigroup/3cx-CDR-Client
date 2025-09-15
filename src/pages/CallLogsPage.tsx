@@ -44,7 +44,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
   const [showFilters, setShowFilters] = useState(false)
   const [showColumnSelector, setShowColumnSelector] = useState(false)
-  const [pageSize, setPageSize] = useState<number>(100)
+  const [pageSize, setPageSize] = useState<number>(500)
   
   // Column management based on call type
   const getDefaultColumns = () => {
@@ -62,7 +62,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
     if (callType === 'incoming') {
       return [
         { key: 'type', label: 'Type', required: true },
-        { key: 'time', label: 'Time', required: true },
+        { key: 'time', label: 'Start Time', required: true },
         { key: 'from', label: 'From', required: true },
         { key: 'to', label: 'To', required: true },
         { key: 'duration', label: 'Duration', required: true },
@@ -85,7 +85,7 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
     } else {
       return [
         { key: 'type', label: 'Type', required: true },
-        { key: 'time', label: 'Time', required: true },
+        { key: 'time', label: 'Start Time', required: true },
         { key: 'from', label: 'From', required: true },
         { key: 'to', label: 'To', required: true },
         { key: 'duration', label: 'Duration', required: true },
@@ -195,7 +195,8 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
         to = endOfDay(now)
         break
       case 'thisYear':
-        from = new Date(now.getFullYear(), 0, 1, 0, 0)
+        // Use a broader range that includes 2024 data
+        from = new Date(2024, 0, 1, 0, 0)  // Start from 2024
         to = endOfDay(now)
         break
       default:
@@ -490,6 +491,9 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
             <option value={25}>25</option>
             <option value={50}>50</option>
             <option value={100}>100</option>
+            <option value={250}>250</option>
+            <option value={500}>500</option>
+            <option value={1000}>1000</option>
           </select>
         </label>
       </div>
@@ -613,13 +617,6 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
               )}
             </div>
             
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-              Export
-            </button>
             <div className="relative">
               <div className="relative">
                 <button
@@ -632,6 +629,16 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                 >
                   <FunnelIcon className="h-4 w-4 mr-2" />
                   Filters
+                  {(() => {
+                    const activeFilters = Object.values(filters).filter(value =>
+                      value !== undefined && value !== null && value !== ''
+                    ).length;
+                    return activeFilters > 0 ? (
+                      <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                        {activeFilters}
+                      </span>
+                    ) : null;
+                  })()}
                 </button>
                 {showFilters && (
                   <div
@@ -821,9 +828,22 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                         </button>
                         <button
                           onClick={() => {
+                            // Convert datetime-local values to ISO strings for backend
+                            const convertToISO = (dateTimeLocal: string) => {
+                              if (!dateTimeLocal) return undefined;
+                              try {
+                                // datetime-local format: YYYY-MM-DDTHH:mm
+                                // Convert to ISO string for backend
+                                return new Date(dateTimeLocal).toISOString();
+                              } catch (error) {
+                                console.warn('Invalid date format:', dateTimeLocal);
+                                return undefined;
+                              }
+                            };
+
                             setFilters({
-                              dateFrom: localFilters.dateFrom || undefined,
-                              dateTo: localFilters.dateTo || undefined,
+                              dateFrom: convertToISO(localFilters.dateFrom),
+                              dateTo: convertToISO(localFilters.dateTo),
                               callType: (localFilters.callType as any) || undefined,
                               status: (localFilters.status as any) || undefined,
                               areaCode: localFilters.areaCode || undefined,
@@ -848,6 +868,14 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                 )}
               </div>
             </div>
+            
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center p-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              title="Export to CSV"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4" />
+            </button>
           </>
         }
         searchValue={searchTerm}
@@ -876,12 +904,12 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                       
                       {/* TIME */}
                       {visibleColumns.includes('time') && (
-                        <th 
+                        <th
                           className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                           onClick={() => handleSort('startTime')}
                         >
                           <div className="flex items-center space-x-1">
-                            <span>Time</span>
+                            <span>Start Time</span>
                             {sortBy === 'startTime' && (
                               <span className="text-blue-500">
                                 {sortOrder === 'asc' ? '↑' : '↓'}
@@ -1055,10 +1083,10 @@ export default function CallLogsPage({ callType }: CallLogsPageProps) {
                           </td>
                         )}
                         
-                        {/* TIME */}
+                        {/* START TIME */}
                         {visibleColumns.includes('time') && (
                           <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-900 dark:text-gray-100">
-                            {format(new Date(call.startTime), 'MMM dd, HH:mm:ss')}
+                            {format(new Date(call.startTime), 'yyyy-MM-dd HH:mm:ss')}
                           </td>
                         )}
                         

@@ -344,7 +344,8 @@ export default function DashboardPage() {
         break
       }
       case 'thisYear': {
-        from = new Date(now.getFullYear(), 0, 1, 0, 0)
+        // Use a broader range that includes 2024 data
+        from = new Date(2024, 0, 1, 0, 0)  // Start from 2024
         to = endOfDay(now)
         break
       }
@@ -811,9 +812,22 @@ export default function DashboardPage() {
                     </button>
                     <button
                       onClick={() => {
+                        // Convert datetime-local values to ISO strings for backend
+                        const convertToISO = (dateTimeLocal: string) => {
+                          if (!dateTimeLocal) return undefined;
+                          try {
+                            // datetime-local format: YYYY-MM-DDTHH:mm
+                            // Convert to ISO string for backend
+                            return new Date(dateTimeLocal).toISOString();
+                          } catch (error) {
+                            console.warn('Invalid date format:', dateTimeLocal);
+                            return undefined;
+                          }
+                        };
+
                         setDashFilters({
-                          dateFrom: localFilters.dateFrom || undefined,
-                          dateTo: localFilters.dateTo || undefined,
+                          dateFrom: convertToISO(localFilters.dateFrom as string),
+                          dateTo: convertToISO(localFilters.dateTo as string),
                           callType: localFilters.callType || undefined,
                           extension: localFilters.extension || undefined,
                           areaCode: localFilters.areaCode || undefined,
