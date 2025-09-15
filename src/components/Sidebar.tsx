@@ -31,6 +31,7 @@ interface SidebarProps {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: faTachometerAlt },
   { name: 'Call Logs', href: '/reports/call-logs', icon: faPhone },
+  { name: 'Raw Data', href: '/reports/raw-data', icon: faDatabase },
   { name: 'Area Codes', href: '/reports/area-codes', icon: faMapMarkerAlt },
   { name: 'Extensions', href: '/reports/extensions', icon: faUsers },
   { name: 'Users', href: '/system/users', icon: faUserShield },

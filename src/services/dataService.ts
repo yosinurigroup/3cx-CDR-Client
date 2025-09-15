@@ -351,6 +351,76 @@ export const dataService = {
       console.error('Get call log error:', error)
       throw error
     }
+  },
+
+  // Get raw data with all MongoDB fields
+  async getRawData(params: {
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    search?: string
+    dateFrom?: string
+    dateTo?: string
+    callType?: string
+    status?: string
+    terminationReason?: string
+    areaCode?: string
+    extension?: string
+    trunkNumber?: string
+    stateCode?: string
+    minDurationSec?: number
+    maxDurationSec?: number
+    minCost?: number
+    maxCost?: number
+    collection?: string
+    raw?: boolean
+  }): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await apiClient.get('/cdr/raw-data', { params })
+      return {
+        data: response.data.rawData,
+        pagination: response.data.pagination
+      }
+    } catch (error: any) {
+      console.error('Get raw data error:', error)
+      throw error
+    }
+  },
+
+  // Export raw data as CSV
+  async exportRawData(params: {
+    page?: number
+    limit?: number
+    sortBy?: string
+    sortOrder?: 'asc' | 'desc'
+    search?: string
+    dateFrom?: string
+    dateTo?: string
+    callType?: string
+    status?: string
+    terminationReason?: string
+    areaCode?: string
+    extension?: string
+    trunkNumber?: string
+    stateCode?: string
+    minDurationSec?: number
+    maxDurationSec?: number
+    minCost?: number
+    maxCost?: number
+    collection?: string
+    raw?: boolean
+  }): Promise<Blob> {
+    try {
+      const response = await apiClient.get('/cdr/raw-data', {
+        params: { ...params, export: true },
+        responseType: 'blob'
+      })
+      return response.data
+    } catch (error: any) {
+      console.error('Export raw data error:', error)
+      throw error
+    }
   }
 }
 

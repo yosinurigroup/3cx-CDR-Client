@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AreaCodesPage from './pages/AreaCodesPage'
 import CallLogsPage from './pages/CallLogsPage'
+import RawDataPage from './pages/RawDataPage'
 import ExtensionsPage from './pages/ExtensionsPage'
 import UsersPage from './pages/UsersPage'
 import SettingsPage from './pages/SettingsPage'
@@ -41,6 +42,7 @@ function App() {
                 <Route path="reports">
                   <Route path="area-codes" element={<AreaCodesPage />} />
                   <Route path="call-logs" element={<CallLogsPage />} />
+                  <Route path="raw-data" element={<RawDataPage />} />
                   <Route path="extensions" element={<ExtensionsPage />} />
                 </Route>
                 
