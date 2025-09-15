@@ -30,7 +30,7 @@ export default function DynamicHeader({
         <div className="flex h-16 items-center justify-between">
           {/* Left side - Mobile menu button and title */}
           <div className="flex items-center gap-4">
-            {/* Mobile menu button */}
+            {/* Mobile menu button for */}
             <button
               type="button"
               className="lg:hidden -m-2.5 p-2.5 text-gray-700 dark:text-gray-300"
